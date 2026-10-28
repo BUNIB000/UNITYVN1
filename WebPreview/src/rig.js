@@ -61,23 +61,64 @@ const Rig = (() => {
     }
     return sh * n;
   }
-  function bentArm(g, up, fore, a1, s) {
-    const uh = up.im.naturalHeight, fh = fore.im.naturalHeight, step = a1 / 8;
-    // upper arm, rigid down to 80%
+  // e = distance from the top of the upper-arm piece to the elbow
+  function bentArm(g, up, fore, a1, s, e) {
+    const uw = up.im.naturalWidth, uh = up.im.naturalHeight, fh = fore.im.naturalHeight, step = a1 / 20;
     g.save(); if (up.flip) g.scale(-1, 1);
-    g.drawImage(up.im, 0, 0, up.im.naturalWidth, uh * 0.8, -up.im.naturalWidth / 2, 0, up.im.naturalWidth, uh * 0.8);
+    g.drawImage(up.im, 0, 0, uw, e * 0.85, -uw / 2, 0, uw, e * 0.85);
     g.restore();
-    g.translate(0, uh * 0.8 * 0.99);
-    strips(g, up, 0.8, 0.94, 4, step, s);
-    strips(g, fore, 0, 0.14, 4, step, s);
-    // the rest of the forearm
+    g.translate(0, e * 0.85 * 0.99);
+    strips(g, up, 0.85 * e / uh, e / uh, 10, step, s);
+    strips(g, fore, 0, 0.12, 10, step, s);
     g.save(); if (fore.flip) g.scale(-1, 1);
-    g.drawImage(fore.im, 0, fh * 0.14, fore.im.naturalWidth, fh * 0.86 + 1, -fore.im.naturalWidth / 2, 0, fore.im.naturalWidth, fh * 0.86 + 1);
+    g.drawImage(fore.im, 0, fh * 0.12, fore.im.naturalWidth, fh * 0.88 + 1, -fore.im.naturalWidth / 2, 0, fore.im.naturalWidth, fh * 0.88 + 1);
     g.restore();
+  }
+  // Pieces cut from one painted figure (rig.json next to the pieces): everything is already at one scale, the joints
+  // are recorded in the file, and the arms were straightened to hang down, so no proportion fixing is needed.
+  const metas = new Map();
+  function meta(id) {
+    if (metas.has(id)) return metas.get(id);
+    let m = null; try { m = JSON.parse(localStorage.getItem("vn_rigmeta_" + id) || "null"); } catch (e) {}
+    if (m && m.v !== 2) m = null;
+    metas.set(id, m); return m;
+  }
+  function setMeta(id, m) { try { if (m) localStorage.setItem("vn_rigmeta_" + id, JSON.stringify(m)); else localStorage.removeItem("vn_rigmeta_" + id); } catch (e) {} metas.delete(id); }
+  function drawExact(g, ch, t, mt, torso, head0) {
+    const id = ch.id, head = pickHead(id, ch, t < ch.blinkUntil) || head0;
+    const hW = head.naturalWidth, hH = head.naturalHeight, tw = torso.naturalWidth, dy = mt.head.dy;
+    const total = mt.feet + (hH - dy), k = 1000 / total;
+    g.save(); g.scale(k, k); g.translate(0, -mt.feet); // origin: centre of the top of the torso (the neck), feet on y = 0
+    const swing = ch.walk ? (ch.walk > 1 ? 30 : 20) : 0;
+    for (const s of [-1, 1]) {
+      const l = side(id, "leg", s), m = mt[s < 0 ? "leg_l" : "leg_r"]; if (!l) continue;
+      g.save(); g.translate(m.x, m.y); g.rotate(swing * Math.sin(ch.walkPhase + (s < 0 ? 0 : Math.PI)) * RAD); hang(g, l); g.restore();
+    }
+    const arm = s => {
+      const up = side(id, "upper_arm", s), fore = side(id, "forearm", s), m = mt[s < 0 ? "arm_l" : "arm_r"], a = ch.arms[s < 0 ? 0 : 1];
+      if (!up) return;
+      g.save(); g.translate(m.x, m.y); g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD); g.translate(0, -m.py);
+      if (fore && Math.abs(a[1]) > 3) bentArm(g, up, fore, a[1], s, m.e);
+      else { hang(g, up); if (fore) { g.translate(0, m.e); hang(g, fore); } }
+      g.restore();
+    };
+    const low = s => { const a = ch.arms[s < 0 ? 0 : 1]; return Math.abs(a[0]) < 40 && Math.abs(a[0] + a[1]) < 70; };
+    for (const s of [-1, 1]) if (low(s)) arm(s);
+    const headAt = () => {
+      g.translate(0, Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004); g.rotate((ch.headTilt || 0) * RAD);
+    };
+    g.save(); headAt(); g.drawImage(head, -hW / 2, dy - hH, hW, hH); g.restore();
+    g.drawImage(torso, -tw / 2, 0, tw, torso.naturalHeight);
+    g.save(); headAt(); g.drawImage(fadedHead(head), -hW / 2, dy - hH, hW, hH); g.restore();
+    for (const s of [-1, 1]) if (!low(s)) arm(s);
+    g.restore();
+    return true;
   }
   function draw(g, ch, t) {
     const id = ch.id, torso = part(id, "torso"), head0 = part(id, "head");
     if (!torso || !head0) return false;
+    const mt = meta(id);
+    if (mt) return drawExact(g, ch, t, mt, torso, head0);
     const head = pickHead(id, ch, t < ch.blinkUntil) || head0;
     const legL = side(id, "leg", -1), legR = side(id, "leg", 1);
     const th = torso.naturalHeight, tw = torso.naturalWidth;
@@ -109,7 +150,7 @@ const Rig = (() => {
       g.save(); g.translate(s * (tw / 2 - uw * 0.6), uw * 0.12);
       g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
       g.scale(as, as);
-      if (fore && Math.abs(a[1]) > 3) bentArm(g, up, fore, a[1], s);
+      if (fore && Math.abs(a[1]) > 3) bentArm(g, up, fore, a[1], s, 0.94 * uh);
       else { hang(g, up); if (fore) { g.translate(0, uh * 0.94); hang(g, fore); } }
       g.restore();
     };
@@ -133,5 +174,5 @@ const Rig = (() => {
     g.restore();
     return true;
   }
-  return { has, draw, headMul, setHeadMul };
+  return { has, draw, headMul, setHeadMul, setMeta };
 })();

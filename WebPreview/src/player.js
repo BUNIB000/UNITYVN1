@@ -514,7 +514,7 @@ const Player = (() => {
       renderArt(sc);
     };
     demo.appendChild(demoBtn);
-    if (total) { const clr = UI.el("button", "btn alt", "Remove all my art"); clr.onclick = async () => { await ArtStore.clear(""); renderArt(sc); }; demo.appendChild(clr); }
+    if (total) { const clr = UI.el("button", "btn alt", "Remove all my art"); clr.onclick = async () => { await ArtStore.clear(""); ids.forEach(i => Rig.setMeta(i, null)); renderArt(sc); }; demo.appendChild(clr); }
     const body = sc.querySelector("#art-body");
     const slotGrid = (title, list, keyFor, opts) => {
       const wrap = UI.el("div", "", `<div class="sub">${UI.esc(title)}</div>`);
@@ -574,7 +574,7 @@ const Player = (() => {
         body.appendChild(hs);
       }
       const clr = UI.el("button", "btn alt", `Clear ${UI.esc(who)}'s art`); clr.style.alignSelf = "flex-start";
-      clr.onclick = async () => { await ArtStore.clear(`char/${who}/`); renderArt(sc); };
+      clr.onclick = async () => { await ArtStore.clear(`char/${who}/`); Rig.setMeta(who, null); renderArt(sc); };
       body.appendChild(clr);
     }
     if (artState.tab === "bgs") {
@@ -649,12 +649,16 @@ const Player = (() => {
     try { const r = await fetch("demo_art/manifest.json", { cache: "no-cache" }); if (!r.ok) throw 0; man = await r.json(); }
     catch (e) { throw new Error("The test art is not available in this copy of the preview."); }
     const keys = Object.keys(man); let done = 0;
+    // pieces from an older test set must not mix with the new ones
+    const rigIds = [...new Set(keys.filter(k => k.includes("/rig/")).map(k => k.split("/")[1]))];
+    for (const id of rigIds) await ArtStore.clear(`char/${id}/rig/`);
     const queue = keys.slice();
     const worker = async () => {
       while (queue.length) {
         const k = queue.shift();
         const r = await fetch("demo_art/" + man[k]); if (!r.ok) continue;
-        await ArtStore.putBlob(k, await r.blob());
+        if (k.endsWith("/rig/_meta")) Rig.setMeta(k.split("/")[1], await r.json());
+        else await ArtStore.putBlob(k, await r.blob());
         progress(++done + "/" + keys.length);
       }
     };
