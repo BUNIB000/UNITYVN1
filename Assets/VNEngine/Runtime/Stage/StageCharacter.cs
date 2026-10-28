@@ -78,6 +78,7 @@ namespace VNEngine
             }
 
             Visual = (ICharacterVisual)PrefabVisual.TryCreate(motion, id, def)
+                     ?? (ICharacterVisual)PartsPuppetVisual.TryCreate(motion, id, def)
                      ?? (ICharacterVisual)SpriteFolderVisual.TryCreate(motion, id, def)
                      ?? PlaceholderVisual.Create(motion, id, def);
             Visual.Root.localScale = Vector3.one * (BaseHeight / Mathf.Max(0.01f, Visual.NativeHeight));

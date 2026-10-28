@@ -99,6 +99,18 @@ How the engine drives a rigged character:
 - Leave a little transparent space above the head. The engine takes the top of the image as the top of the head; adjust with `head=0.95` in the character line, or a Head Top object on the rig.
 - Draw characters facing the viewer or facing right. If your art faces left, add `faces=left` to the character line.
 
+### Cutout puppet (parts-based characters)
+
+For full body animation from one set of cut pieces, put the parts in `Characters/NAME/rig/`:
+
+- Required: `head.png` and `torso.png`.
+- Optional: `upper_arm_l`, `forearm_l`, `upper_arm_r`, `forearm_r`, `leg_l`, `leg_r`, `hair_back`. A missing side is mirrored from the other one.
+- Expressions: `head_happy`, `head_sad`, `head_angry`... (any emotion name). Mouth and blink frames: `head_talk`, `head_blink`, or `head_<emotion>_talk` / `head_<emotion>_blink`.
+- Outfits: a sibling folder `rig_<outfit>/` (for example `rig_formal/`) with the pieces that change, named the same. Pieces not in it keep the default look. Switch with `outfit=formal` on the character line.
+- Pieces can be any size; the engine normalises arm, leg and head proportions against the torso. Add `headsize=1.1` to the character line to scale the head.
+
+The puppet gets gestures (`@MAYA does wave`), arm poses per emotion, walking leg swing, head tilt, hair sway, lip flap and blinking with no animation work. It takes priority over single-image folders, so delete `rig/` to go back to those.
+
 ## Item close-ups, icons and covers
 
 - `@show letter` shows `Images/letter.png` in the middle of the screen with a pop. `@show letter top` places it higher.
