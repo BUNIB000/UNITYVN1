@@ -47,6 +47,10 @@ Characters/MAYA/
 
 `@MAYA is talk_happy` looks for `talk_happy`, then `happy`, then `neutral`. Pictures crossfade when they change. Built-in motions (jump, nod, laugh, walk bounce, breathing) are added on top, so even one picture per mood feels alive.
 
+**Outfits.** Put each outfit's pictures in a subfolder named after it, such as `Characters/PLAYER/dress/happy.png`. When the story sets that outfit, the engine looks in the subfolder first and falls back to the main folder, so an outfit only needs the pictures that differ (`neutral` and `happy` are enough to start). The `casual` outfit uses the main folder. Common outfit names are detected automatically; list any others on the character with `outfits=hoodie,gown`.
+
+**Sprite sheets.** Several poses can come on one sheet. Set the texture's Sprite Mode to Multiple, slice it in the Sprite Editor (Automatic works on a plain or transparent background), and give each slice the file name it replaces (`happy`, `happy_talk`...). Use the same cell size and pivot (bottom centre) for every slice so talking and blinking frames line up.
+
 ### 2. Layered parts (recommended, Episode-like)
 
 Draw the character once on a fixed canvas (same size for every part, e.g. 1200 × 2400) and export each part as its own transparent PNG, aligned on that canvas.

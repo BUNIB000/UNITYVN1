@@ -350,7 +350,8 @@ namespace VNEngine
 
     /// <summary>
     /// Characters/NAME/ with either:
-    ///  - single images named by expression or pose (neutral.png, happy.png, talk_happy.png, happy_talk.png for lip flap, happy_blink.png), or
+    ///  - single images named by expression or pose (neutral.png, happy.png, talk_happy.png, happy_talk.png for lip flap, happy_blink.png),
+    ///    with optional outfit subfolders (dress/happy.png ...) that fall back to the main folder, or
     ///  - layered part folders: body/, outfit/, face/, eyes/, mouth/, brows/, hair/, accessory/ (all exported on the same canvas size).
     /// </summary>
     public sealed class SpriteFolderVisual : MonoBehaviour, ICharacterVisual
@@ -360,7 +361,10 @@ namespace VNEngine
         readonly Dictionary<string, Dictionary<string, Sprite>> slots = new Dictionary<string, Dictionary<string, Sprite>>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, SpriteRenderer> renderers = new Dictionary<string, SpriteRenderer>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, string> outfit = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, Sprite> singles;
+        Dictionary<string, Sprite> singles; // the main look (images directly in Characters/NAME/)
+        readonly Dictionary<string, Dictionary<string, Sprite>> outfitSingles = new Dictionary<string, Dictionary<string, Sprite>>(StringComparer.OrdinalIgnoreCase);
+        string charFolder;
+        static readonly string[] CommonOutfits = { "dress", "suit", "sweater", "formal", "party", "pajamas", "swimsuit", "uniform", "jacket", "apron", "coat", "winter", "summer", "work", "sport" };
         SpriteRenderer single, singleFade;
         bool layered;
         string pose = "idle", emotion = "neutral";
@@ -372,7 +376,7 @@ namespace VNEngine
         public Transform Root => transform;
         public float NativeHeight => nativeHeight;
         public float HeadTop => headTop;
-        public bool HasWalkCycle => Has("body", "walk") || (singles != null && singles.ContainsKey("walk"));
+        public bool HasWalkCycle => Has("body", "walk") || (singles != null && FindSingle("walk") != null);
 
         public static SpriteFolderVisual TryCreate(Transform parent, string id, CharacterDefinition def)
         {
@@ -400,7 +404,13 @@ namespace VNEngine
             }
             else
             {
-                v.singles = all.GroupBy(s => s.name.ToLowerInvariant()).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+                v.charFolder = folder;
+                // Images in outfit subfolders also show up when loading the main folder, so find those folders first and leave them out.
+                var outfitNames = new List<string>(CommonOutfits);
+                if (def != null && def.Options.TryGetValue("outfit", out var startOutfit)) outfitNames.Add(startOutfit);
+                if (def != null && def.Options.TryGetValue("outfits", out var listed)) outfitNames.AddRange(listed.Split(new[] { ',', ' ', '|' }, StringSplitOptions.RemoveEmptyEntries));
+                foreach (var n in outfitNames) v.LoadOutfitSet(n, false);
+                v.RebuildMainSet();
                 v.single = new GameObject("image").AddComponent<SpriteRenderer>();
                 v.single.transform.SetParent(go.transform, false);
                 v.singleFade = new GameObject("image (fade)").AddComponent<SpriteRenderer>();
@@ -438,6 +448,39 @@ namespace VNEngine
             if (def != null && def.Options.TryGetValue("head", out var head) && Util.TryFloat(head, out var ht)) headTop = ht;
         }
 
+        static bool IsMainLook(string label) => string.IsNullOrEmpty(label) || label.Equals("casual", StringComparison.OrdinalIgnoreCase) || label.Equals("base", StringComparison.OrdinalIgnoreCase) || label.Equals("default", StringComparison.OrdinalIgnoreCase);
+
+        static Dictionary<string, Sprite> ByName(IEnumerable<Sprite> sprites) =>
+            sprites.GroupBy(s => s.name.ToLowerInvariant()).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Images in Characters/NAME/label/, or null when that outfit has no folder.</summary>
+        Dictionary<string, Sprite> LoadOutfitSet(string label, bool rebuild = true)
+        {
+            if (IsMainLook(label) || charFolder == null) return null;
+            if (outfitSingles.TryGetValue(label, out var known)) return known;
+            var sprites = AssetLibrary.LoadAllSprites(charFolder + "/" + label);
+            var set = sprites.Length > 0 ? ByName(sprites) : null;
+            outfitSingles[label] = set;
+            if (set != null && rebuild) RebuildMainSet();
+            return set;
+        }
+
+        void RebuildMainSet()
+        {
+            var all = AssetLibrary.LoadAllSprites(charFolder);
+            var inOutfits = new HashSet<Texture2D>(outfitSingles.Values.Where(d => d != null).SelectMany(d => d.Values).Select(s => s.texture));
+            var main = all.Where(s => !inOutfits.Contains(s.texture)).ToList();
+            singles = ByName(main.Count > 0 ? main : all.ToList());
+        }
+
+        /// <summary>The image sets to search, outfit first, then the main look.</summary>
+        IEnumerable<Dictionary<string, Sprite>> SingleSets()
+        {
+            var o = outfit.TryGetValue("outfit", out var label) ? LoadOutfitSet(label) : null;
+            if (o != null) yield return o;
+            yield return singles;
+        }
+
         bool Has(string slot, string name) => slots.TryGetValue(slot, out var d) && d.ContainsKey(name);
 
         Sprite Find(string slot, params string[] names)
@@ -449,14 +492,15 @@ namespace VNEngine
 
         Sprite FindSingle(params string[] names)
         {
-            foreach (var n in names) if (!string.IsNullOrEmpty(n) && singles.TryGetValue(n, out var s)) return s;
+            foreach (var set in SingleSets())
+                foreach (var n in names) if (!string.IsNullOrEmpty(n) && set.TryGetValue(n, out var s)) return s;
             return null;
         }
 
         public bool HasAnimation(string name)
         {
             if (layered) return Has("body", name);
-            return singles.ContainsKey(name);
+            return FindSingle(name) != null;
         }
 
         public bool Play(string gesture, string fullName, bool loop)
@@ -530,16 +574,22 @@ namespace VNEngine
             }
 
             string em = emotion, ne = Emotions.Normalize(emotion), p = pose;
+            // Pick the picture from the outfit folder when it has one, else from the main look.
+            // Talk and blink frames come from the same folder as the picture they belong to.
             string baseName = null;
-            foreach (var candidate in new[] { p != null ? p + "_" + em : null, p != null ? em + "_" + p : null, p, em, ne, "neutral", "idle", "default" })
+            Dictionary<string, Sprite> from = singles;
+            var candidates = new[] { p != null ? p + "_" + em : null, p != null ? em + "_" + p : null, p, em, ne, "neutral", "idle", "default" };
+            foreach (var set in SingleSets())
             {
-                if (candidate != null && singles.ContainsKey(candidate)) { baseName = candidate; break; }
+                baseName = candidates.FirstOrDefault(c => c != null && set.ContainsKey(c));
+                if (baseName != null) { from = set; break; }
             }
             if (baseName == null) baseName = singles.Keys.OrderBy(k => k).First();
+            Sprite pick(params string[] names) { foreach (var n in names) if (from.TryGetValue(n, out var s)) return s; return null; }
             Sprite sprite = null;
-            if (eyesClosed) sprite = FindSingle(baseName + "_blink", baseName + "_closed");
-            if (sprite == null && mouthOpen) sprite = FindSingle(baseName + "_talk", baseName + "_open");
-            if (sprite == null) sprite = singles[baseName];
+            if (eyesClosed) sprite = pick(baseName + "_blink", baseName + "_closed");
+            if (sprite == null && mouthOpen) sprite = pick(baseName + "_talk", baseName + "_open");
+            if (sprite == null) sprite = from[baseName];
             if (single.sprite == sprite) return;
             if (!instant && single.sprite != null && isActiveAndEnabled)
             {
