@@ -652,12 +652,14 @@ const Player = (() => {
     // pieces from an older test set must not mix with the new ones
     const rigIds = [...new Set(keys.filter(k => k.includes("/rig/")).map(k => k.split("/")[1]))];
     for (const id of rigIds) await ArtStore.clear(`char/${id}/rig/`);
+    for (const id of [...new Set(keys.filter(k => k.includes("/pose/")).map(k => k.split("/")[1]))]) await ArtStore.clear(`char/${id}/pose/`);
     const queue = keys.slice();
     const worker = async () => {
       while (queue.length) {
         const k = queue.shift();
         const r = await fetch("demo_art/" + man[k]); if (!r.ok) continue;
         if (k.endsWith("/rig/_meta")) Rig.setMeta(k.split("/")[1], await r.json());
+        else if (k.endsWith("/pose/_meta")) Rig.setPoseMeta(k.split("/")[1], await r.json());
         else await ArtStore.putBlob(k, await r.blob());
         progress(++done + "/" + keys.length);
       }
@@ -689,6 +691,20 @@ ${line("cry", "Crying...")}
 ${line("smug", "Feeling smug.")}
 ${line("love", "In love.")}
 @${id} is wave
+${line("talk", "Now some poses.")}
+@${id} is arms_crossed
+${line("angry", "Arms folded.")}
+@${id} is phone
+${line("neutral", "Checking my phone.")}
+@${id} is hands_hips
+${line("smug", "Hands on my hips.")}
+@${id} is hands_back
+${line("happy", "Hands behind my back.")}
+@${id} is hands_clasped
+${line("worried", "Hands clasped.")}
+@${id} is hand_pocket
+${line("neutral", "Hand in my pocket.")}
+@${id} is idle
 @${id} jumps
 @${id} nods
 @${id} laughs

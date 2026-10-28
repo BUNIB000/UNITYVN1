@@ -347,8 +347,7 @@ const Art = (() => {
   function gestureGoal(gesture, near) {
     switch (gesture) {
       case "think": return near ? "chin" : null;
-      case "cry": return "eyes";
-      case "love": case "swoon": case "blush": case "shy": return "cheek";
+      case "cry": case "love": case "swoon": case "blush": case "shy": return "chest";
       case "gasp": case "surprised": case "flinch": case "shocked": return near ? "mouth" : null;
       case "angry": case "stomp": return "hip";
       case "laugh": case "giggle": return near ? "mouth" : null;
@@ -362,7 +361,7 @@ const Art = (() => {
       case "smug": return near ? "hip" : null;
       case "think": return near ? "chin" : null;
       case "worried": case "scared": case "embarrassed": return "chest";
-      case "love": return "cheek";
+      case "love": return "chest";
     }
     return null;
   }

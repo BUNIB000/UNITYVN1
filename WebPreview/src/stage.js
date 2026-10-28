@@ -100,7 +100,10 @@ class StageChar {
     if (a.emotion) { this.emotion = a.emotion; this.rawEmotion = a.raw; }
     this.animName = anim.toLowerCase().replace(/_loop$/, "");
     let g = a.gesture;
-    if (g === "idle") { this.gesture = null; this.hold = null; return 0; }
+    const pn = typeof Rig !== "undefined" && Rig.poseName(this.id, anim.toLowerCase().replace(/^is_/, ""));
+    if (pn) { this.pose = pn; this.gesture = null; this.hold = null; return 0; }
+    if (g === "idle") { this.gesture = null; this.hold = null; this.pose = null; return 0; }
+    if (g && g !== "talk") this.pose = null;
     if (!g) return 0;
     const m = Motion.get(g);
     const armOnly = Art.gesturePose(g, 0.5, 0, true) || Art.gesturePose(g, 0.5, 0, false);

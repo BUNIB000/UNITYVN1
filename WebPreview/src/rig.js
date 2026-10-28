@@ -90,14 +90,14 @@ const Rig = (() => {
     const sgn = s === 0 ? -1 : 1, m = mt[s === 0 ? "arm_l" : "arm_r"];
     const fo = side(id, "forearm", sgn), hd = part(id, "head"); if (!fo || !hd) return null;
     const L1 = m.e - m.py, L2 = 0.93 * fo.im.naturalHeight, H1 = hd.naturalHeight - mt.head.dy, th = mt.torso.h, tw = mt.torso.w;
-    const G = { chin: [0.10 * H1, -0.22 * H1], mouth: [0.07 * H1, -0.31 * H1], cheek: [0.33 * H1, -0.33 * H1], eyes: [0.24 * H1, -0.52 * H1],
+    const G = { chin: [0.10 * H1, 0.02 * H1], mouth: [0.07 * H1, -0.31 * H1], cheek: [0.33 * H1, -0.33 * H1], eyes: [0.24 * H1, -0.52 * H1],
       chest: [0.14 * tw, 0.22 * th], hip: [0.47 * tw, 0.55 * th], cross: [-0.36 * tw, 0.24 * th] }[goal];
     if (!G) return null;
     const tx = sgn * G[0], ty = G[1], dx = tx - m.x, dy = ty - m.y;
     let d = Math.hypot(dx, dy); d = Math.max(Math.abs(L1 - L2) + 1, Math.min(L1 + L2 - 1, d));
     const base = Math.atan2(dy, dx), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
     const cand = [base + A, base - A].map(a => ({ x: m.x + L1 * Math.cos(a), y: m.y + L1 * Math.sin(a) }));
-    const E = cand[0].y > cand[1].y ? cand[0] : cand[1];
+    const E = sgn * cand[0].x > sgn * cand[1].x ? cand[0] : cand[1]; // elbow out to the side, never across the body
     const hx = m.x + (tx - m.x) * d / Math.hypot(dx, dy), hy = m.y + (ty - m.y) * d / Math.hypot(dx, dy);
     const a0 = sgn * Math.atan2(E.x - m.x, E.y - m.y) / RAD, abs = sgn * Math.atan2(hx - E.x, hy - E.y) / RAD;
     let a1 = abs - a0; while (a1 > 180) a1 -= 360; while (a1 < -180) a1 += 360;
@@ -105,7 +105,7 @@ const Rig = (() => {
   }
   const hasExact = id => !!meta(id) && has(id);
   function setMeta(id, m) { try { if (m) localStorage.setItem("vn_rigmeta_" + id, JSON.stringify(m)); else localStorage.removeItem("vn_rigmeta_" + id); } catch (e) {} metas.delete(id); }
-  function drawExact(g, ch, t, mt, torso, head0) {
+  function rigLayer(g, ch, t, mt, torso, head0) {
     const id = ch.id, head = pickHead(id, ch, t < ch.blinkUntil) || head0;
     const hW = head.naturalWidth, hH = head.naturalHeight, tw = torso.naturalWidth, dy = mt.head.dy;
     const total = mt.feet + (hH - dy), k = 1000 / total;
@@ -133,6 +133,88 @@ const Rig = (() => {
     g.save(); headAt(); g.drawImage(fadedHead(head), -hW / 2, dy - hH, hW, hH); g.restore();
     for (const s of [-1, 1]) if (!low(s)) arm(s);
     g.restore();
+    return true;
+  }
+
+  // ----- Whole-body poses (arms folded, phone, hands on hips...) and the side-view walk -----
+  // Poses are stored as char/<ID>/pose/<name>; the head is cut off and replaced by the puppet's own head, so faces still
+  // blink, talk and change expression. The numbers in char/<ID>/pose/_meta place each pose on the puppet's neck.
+  const pmetas = new Map();
+  function poseMeta(id) {
+    if (pmetas.has(id)) return pmetas.get(id);
+    let m = null; try { m = JSON.parse(localStorage.getItem("vn_posemeta_" + id)); } catch (e) {}
+    pmetas.set(id, m); return m;
+  }
+  function setPoseMeta(id, m) { try { if (m) localStorage.setItem("vn_posemeta_" + id, JSON.stringify(m)); else localStorage.removeItem("vn_posemeta_" + id); } catch (e) {} pmetas.delete(id); }
+  const pimg = (id, n) => ArtStore.get(`char/${id}/pose/${n}`);
+  const hasPose = (id, n) => { const m = poseMeta(id); return !!(m && m.poses && m.poses[n] && pimg(id, n) && hasExact(id)); };
+  const hasWalk = id => { const m = poseMeta(id); return !!(m && m.walk && pimg(id, "walk0") && pimg(id, "walk3") && hasExact(id)); };
+  const POSE_WORDS = {
+    arms_crossed: ["arms_crossed", "arms_folded", "folded", "crossed", "fold_arms", "cross_arms", "folded_arms", "crossed_arms"],
+    phone: ["phone", "using_phone", "use_phone", "texting", "text", "check_phone"],
+    hands_hips: ["hands_hips", "hands_on_hips", "hips", "hands_on_hip", "hand_on_hips"],
+    hands_back: ["hands_back", "hands_behind_back", "behind_back", "hands_behind", "hands_behind_back"],
+    hands_clasped: ["hands_clasped", "clasped", "clasp", "hands_together", "hands_in_front"],
+    hand_pocket: ["hand_pocket", "hand_in_pocket", "pocket", "in_pocket", "hands_pocket"],
+  };
+  // The pose a script word means for this character, or null.
+  function poseName(id, word) {
+    const w = String(word || "").toLowerCase().replace(/[\s-]+/g, "_").replace(/_loop$/, "");
+    for (const k of Object.keys(POSE_WORDS)) if (POSE_WORDS[k].includes(w) || k === w) return hasPose(id, k) ? k : null;
+    return null;
+  }
+  // The head with only the last 5% faded, so the new head blends into the neck of the pose.
+  const fade2 = new Map();
+  function fadedNeck(im) {
+    let c = fade2.get(im); if (c) return c;
+    c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const x = c.getContext("2d"); x.drawImage(im, 0, 0);
+    const gr = x.createLinearGradient(0, c.height * 0.95, 0, c.height);
+    gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    x.globalCompositeOperation = "destination-in"; x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
+    fade2.set(im, c); return c;
+  }
+  function frame(g, ch, t, mt, head0, body) {
+    const id = ch.id, head = pickHead(id, ch, t < ch.blinkUntil) || head0;
+    const hW = head.naturalWidth, hH = head.naturalHeight, dy = mt.head.dy;
+    const total = mt.feet + (hH - dy), k = 1000 / total;
+    g.save(); g.scale(k, k); g.translate(0, -mt.feet);
+    body(head, hW, hH, dy);
+    g.restore();
+  }
+  function poseLayer(g, ch, t, mt, head0, name) {
+    const id = ch.id, p = poseMeta(id).poses[name], im = pimg(id, name);
+    frame(g, ch, t, mt, head0, (head, hW, hH, dy) => {
+      g.drawImage(im, -p.cx, dy - p.yb);
+      g.save(); g.translate(0, Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004); g.rotate((ch.headTilt || 0) * RAD);
+      g.drawImage(fadedNeck(head), -hW / 2, dy - hH, hW, hH); g.restore();
+    });
+  }
+  function walkLayer(g, ch, t, mt, head0) {
+    const id = ch.id, pm = poseMeta(id), i = ((Math.floor(ch.walkPhase / (Math.PI / 2)) % 4) + 4) % 4, im = pimg(id, "walk" + i) || pimg(id, "walk0");
+    frame(g, ch, t, mt, head0, (head, hW, hH, dy) => {
+      const w = im.naturalWidth, h = im.naturalHeight;
+      g.save(); if (ch.facing < 0) g.scale(-1, 1);
+      g.drawImage(im, -w / 2, dy + pm.ground - h, w, h); g.restore();
+    });
+  }
+  // Draws whichever look the character should have now (a pose, the walk, or the puppet) and fades between them.
+  function drawExact(g, ch, t, mt, torso, head0) {
+    const id = ch.id;
+    const want = ch.walk && hasWalk(id) ? "walk" : ch.pose && hasPose(id, ch.pose) ? ch.pose : null;
+    if (ch._rl === undefined) { ch._rl = want; ch._rlPrev = undefined; ch._rlT = t; }
+    else if (want !== ch._rl) { ch._rlPrev = ch._rl; ch._rl = want; ch._rlT = t; }
+    const k = ch._rlPrev === undefined ? 1 : Math.min(1, (t - ch._rlT) / 0.22);
+    if (k >= 1) ch._rlPrev = undefined;
+    const one = (name, a) => {
+      g.save(); g.globalAlpha *= a;
+      if (name === null) rigLayer(g, ch, t, mt, torso, head0);
+      else if (name === "walk") walkLayer(g, ch, t, mt, head0);
+      else poseLayer(g, ch, t, mt, head0, name);
+      g.restore();
+    };
+    if (ch._rlPrev !== undefined) one(ch._rlPrev, 1);
+    one(ch._rl, k);
     return true;
   }
   function draw(g, ch, t) {
@@ -195,5 +277,5 @@ const Rig = (() => {
     g.restore();
     return true;
   }
-  return { has, hasExact, ik, draw, headMul, setHeadMul, setMeta };
+  return { has, hasExact, ik, draw, headMul, setHeadMul, setMeta, setPoseMeta, hasPose, hasWalk, poseName };
 })();
