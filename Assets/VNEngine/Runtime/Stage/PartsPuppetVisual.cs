@@ -92,17 +92,17 @@ namespace VNEngine
         {
             body = Pivot("body", transform);
             torsoPivot = Pivot("torso", body);
-            torsoSr = Piece("torso image", torsoPivot, 2);
+            torsoSr = Piece("torso image", torsoPivot, 3);
             headPivot = Pivot("head", body);
             hairPivot = Pivot("hair", headPivot);
             headScale = Pivot("head scale", headPivot);
-            hairSr = Piece("hair back", hairPivot, 0);
-            headSr = Piece("head image", headScale, 3);
+            hairSr = Piece("hair back", hairPivot, 1);
+            headSr = Piece("head image", headScale, 2);
             for (int i = 0; i < 2; i++)
             {
                 legPivot[i] = Pivot(i == 0 ? "leg L" : "leg R", body);
                 legScale[i] = Pivot("scale", legPivot[i]);
-                legSr[i] = Piece("leg image", legScale[i], 1);
+                legSr[i] = Piece("leg image", legScale[i], 0);
                 shoulder[i] = Pivot(i == 0 ? "arm L" : "arm R", body);
                 armScale[i] = Pivot("scale", shoulder[i]);
                 upperSr[i] = Piece("upper arm", armScale[i], 4);
@@ -165,7 +165,7 @@ namespace VNEngine
 
             torsoPivot.localPosition = new Vector3(0, torsoTop, 0);
             Hang(torsoSr, torso, false);
-            headPivot.localPosition = new Vector3(0, torsoTop - 0.08f * hH, 0);
+            headPivot.localPosition = new Vector3(0, torsoTop - 0.16f * hH, 0);
             headScale.localScale = Vector3.one * hk;
             hairPivot.localPosition = new Vector3(0, hH * 0.92f, 0);
             hairPivot.localScale = Vector3.one * hk;
@@ -180,7 +180,7 @@ namespace VNEngine
                 Hang(legSr[i], legs[i], legFlip[i]);
 
                 float uw = up[i] != null ? up[i].bounds.size.x * asc : 0;
-                shoulder[i].localPosition = new Vector3(s * (tw / 2 - uw * 0.55f), torsoTop - uw * 0.35f, 0);
+                shoulder[i].localPosition = new Vector3(s * (tw / 2 - uw * 0.6f), torsoTop - uw * 0.12f, 0);
                 armScale[i].localScale = Vector3.one * asc;
                 Hang(upperSr[i], up[i], upFlip[i]);
                 elbow[i].localPosition = new Vector3(0, up[i] != null ? -up[i].bounds.size.y * 0.94f : 0, 0);
@@ -336,6 +336,10 @@ namespace VNEngine
                 bool hasFore = foreSr[i].sprite != null;
                 shoulder[i].localRotation = Quaternion.Euler(0, 0, s * (hasFore ? arms[i][0] : arms[i][0] + arms[i][1] * 0.5f));
                 elbow[i].localRotation = Quaternion.Euler(0, 0, s * arms[i][1]);
+                // arms hanging close to the body tuck behind the torso so its sleeves hide the shoulder joins
+                bool tuck = Mathf.Abs(arms[i][0]) < 40f && Mathf.Abs(arms[i][0] + arms[i][1]) < 70f;
+                upperSr[i].sortingOrder = tuck ? -2 : 4;
+                foreSr[i].sortingOrder = tuck ? -1 : 5;
             }
 
             // legs swing while walking and settle when they stop

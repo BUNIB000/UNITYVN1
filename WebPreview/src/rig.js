@@ -37,6 +37,17 @@ const Rig = (() => {
     }
     return part(id, key);
   }
+  // The head with its bottom 22% faded out. Drawn over the torso it blends the neck into the torso's neck stub.
+  const fadeCache = new Map();
+  function fadedHead(im) {
+    let c = fadeCache.get(im); if (c) return c;
+    c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const x = c.getContext("2d"); x.drawImage(im, 0, 0);
+    const gr = x.createLinearGradient(0, c.height * 0.78, 0, c.height);
+    gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    x.globalCompositeOperation = "destination-in"; x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
+    fadeCache.set(im, c); return c;
+  }
   function draw(g, ch, t) {
     const id = ch.id, torso = part(id, "torso"), head0 = part(id, "head");
     if (!torso || !head0) return false;
@@ -62,26 +73,35 @@ const Rig = (() => {
       g.rotate(swing * Math.sin(ch.walkPhase + (s < 0 ? 0 : Math.PI)) * RAD);
       g.scale(ls, ls); hang(g, l); g.restore();
     });
-    g.drawImage(torso, -tw / 2, 0, tw, th);
-    // head, with hair that trails behind it
+    // arms hanging close to the body tuck behind the torso so its sleeves and neckline hide the joins;
+    // raised arms are drawn in front
+    const arm = s => {
+      const up = side(id, "upper_arm", s); if (!up) return;
+      const fore = side(id, "forearm", s), a = ch.arms[s < 0 ? 0 : 1];
+      const uw = up.im.naturalWidth * as, uh = up.im.naturalHeight;
+      g.save(); g.translate(s * (tw / 2 - uw * 0.6), uw * 0.12);
+      g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
+      g.scale(as, as); hang(g, up);
+      if (fore) { g.translate(0, uh * 0.94); g.rotate(-s * a[1] * RAD); hang(g, fore); }
+      g.restore();
+    };
+    const low = s => { const a = ch.arms[s < 0 ? 0 : 1]; return Math.abs(a[0]) < 40 && Math.abs(a[0] + a[1]) < 70; };
+    for (const s of [-1, 1]) if (low(s)) arm(s);
+    // head behind the torso: the torso's neck stub covers the bottom of the neck, so there is no seam or gap
     g.save();
-    g.translate(0, 0.08 * hH + Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004);
+    g.translate(0, 0.16 * hH + Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004);
     g.rotate((ch.headTilt || 0) * RAD);
     const hair = part(id, "hair_back");
     if (hair) { g.save(); g.translate(0, -hH * 0.92); g.rotate(-(ch.sway || 0) * 0.35 * RAD); g.scale(hk, hk); hang(g, { im: hair }); g.restore(); }
     g.drawImage(head, -hW / 2, -hH, hW, hH);
     g.restore();
-    // arms: upper arm from the shoulder, forearm from the elbow
-    for (const s of [-1, 1]) {
-      const up = side(id, "upper_arm", s); if (!up) continue;
-      const fore = side(id, "forearm", s), a = ch.arms[s < 0 ? 0 : 1];
-      const uw = up.im.naturalWidth * as, uh = up.im.naturalHeight;
-      g.save(); g.translate(s * (tw / 2 - uw * 0.55), uw * 0.35);
-      g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
-      g.scale(as, as); hang(g, up);
-      if (fore) { g.translate(0, uh * 0.94); g.rotate(-s * a[1] * RAD); hang(g, fore); }
-      g.restore();
-    }
+    g.drawImage(torso, -tw / 2, 0, tw, th);
+    g.save();
+    g.translate(0, 0.16 * hH + Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004);
+    g.rotate((ch.headTilt || 0) * RAD);
+    g.drawImage(fadedHead(head), -hW / 2, -hH, hW, hH);
+    g.restore();
+    for (const s of [-1, 1]) if (!low(s)) arm(s);
     g.restore();
     return true;
   }
