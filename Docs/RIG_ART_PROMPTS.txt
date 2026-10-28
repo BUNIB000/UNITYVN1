@@ -1,0 +1,61 @@
+RIG-READY ART PROMPTS (v2, built for smooth animation)
+============================================================
+WHAT WAS WRONG BEFORE
+The old parts sheets drew every piece separately, so pieces did not match each other (different scale, shading and cut ends) and the joins showed. This time the character is drawn ONCE, as one complete figure in a rig-friendly pose. I cut the pieces out of that single painting (so they always match), and a second image gives the faces.
+
+THE PLAN: 2 IMAGES PER CHARACTER
+  1. FIGURE   one full-body picture in an "A-pose" (arms and legs slightly apart so every limb can be cut cleanly)
+  2. FACES    one sheet of 12 heads (expressions, talking mouth, blink), made from the figure as a reference
+That is 6 images for all three characters. 
+
+START WITH MAYA ONLY (2 images). Look at the result before paying for the other four. If Maya's figure looks good, send me the two images and I will build the new cutter and show you the animation before you generate anything else.
+
+CREDIT-SAVING TIPS
+- Generate the FIGURE first. Then, in the SAME chat, upload or keep it as the reference and send the FACES prompt. This keeps the face, skin and hair identical.
+- For Player and Leo, stay in the same chat and say: "Same style and framing. New character:" then paste the character line from their prompt.
+- Do not ask for upscales or retries of minor flaws. Hands that are a bit odd are fine; I can redraw the hand pose with the engine. Only retry if the pose is wrong (arms touching the body, legs crossed, cropped feet).
+- Use the largest standard size your tool gives. Portrait for the figure, landscape for the faces.
+
+WHAT MAKES THE FIGURE "RIG-READY" (already built into the prompts)
+- Plain flat green background, so cutting is clean.
+- Arms held about 35 degrees away from the body, legs about shoulder-width apart, so no limb overlaps another.
+- Hair kept off the shoulders and neck, no scarves, no long flowing clothes.
+- Flat, even lighting with no cast shadows, so pieces can be moved without bad shading.
+- Head-to-toe in frame, feet fully visible.
+
+============================================================
+1A. MAYA - FIGURE
+============================================================
+Episode-style mobile visual novel character art, clean semi-realistic 2D digital illustration, soft cel shading, smooth clean lineart, soft vibrant colours, no text, no watermark. FULL-BODY character reference for a cutout animation rig. One single character, perfectly front view, standing straight, in a relaxed A-pose: both arms held straight and relaxed about 35 degrees away from the body, hands open with fingers together and palms facing the thighs, hands clear of the body; legs straight and slightly apart, about shoulder width, both feet pointing straight forward, flat on the ground. The whole body is visible from the top of the head to the soles of the shoes, centred, filling about 92% of the image height, with space on both sides. Perfectly symmetrical posture, neutral calm expression, mouth closed, looking straight at the viewer. Flat, even, soft lighting with NO cast shadows, no rim light, no ground shadow. Background: one solid flat bright green (#00FF00), no floor, no gradient, no objects. Character: Maya, a cheerful coffee shop owner in her late 20s with warm medium-brown skin, dark plum-black hair in a high ponytail with a small pink scrunchie (all hair pulled up and back, nothing hanging over the neck or shoulders), dark brown eyes and gentle smile lines, wearing a coral-pink t-shirt under a cream canvas barista apron with a small crescent-moon logo on the chest, blue jeans and white sneakers. The clothes are fitted, no loose flowing fabric, the apron ends above the knees. Portrait 2:3.
+
+============================================================
+1B. MAYA - FACES (use the figure above as the reference image)
+============================================================
+Use the attached full-body image as the exact reference: this is the same character, the same face, the same skin tone, the same hair, the same style and line quality. Create a HEAD SHEET: the character's head and a short neck only, on a solid flat bright green (#00FF00) background, laid out as a grid of exactly 4 columns and 3 rows of equal cells. Every head is drawn the same size, the same angle (perfectly front view, not tilted), at the same position in its cell, with the neck cut straight across at the collarbone, no shoulders, no clothing. Hair exactly as in the reference (the high ponytail is NOT included, only the hair on the head and the scrunchie base). Wide green gaps between cells, nothing touching, no grid lines, no borders, no labels, no numbers, no text. Flat even lighting, no cast shadows. Reading left to right, row by row: 1 neutral calm face, mouth closed. 2 the neutral face with the mouth open mid-word, talking. 3 the neutral face with the eyes fully closed, a blink. 4 warm open smile. 5 sad, inner eyebrows raised, small frown. 6 angry, eyebrows pulled into a V, tight mouth. 7 surprised, eyebrows high, small open O mouth. 8 worried, eyebrows tilted up in the middle, mouth slightly wavy. 9 smug, one eyebrow raised, a sideways smirk. 10 big laughing open-mouth smile with the eyes squeezed shut. 11 crying, tears on the cheeks, mouth trembling. 12 embarrassed, blushing cheeks, small shy smile, eyes glancing down. Landscape 4:3.
+
+============================================================
+2A. PLAYER (Alex) - FIGURE
+============================================================
+(Stay in the same chat as Maya if you can. Otherwise paste the whole prompt.)
+Episode-style mobile visual novel character art, clean semi-realistic 2D digital illustration, soft cel shading, smooth clean lineart, soft vibrant colours, no text, no watermark. FULL-BODY character reference for a cutout animation rig. One single character, perfectly front view, standing straight, in a relaxed A-pose: both arms held straight and relaxed about 35 degrees away from the body, hands open with fingers together and palms facing the thighs, hands clear of the body; legs straight and slightly apart, about shoulder width, both feet pointing straight forward, flat on the ground. The whole body is visible from the top of the head to the soles of the shoes, centred, filling about 92% of the image height, with space on both sides. Perfectly symmetrical posture, neutral calm expression, mouth closed, looking straight at the viewer. Flat, even, soft lighting with NO cast shadows, no rim light, no ground shadow. Background: one solid flat bright green (#00FF00), no floor, no gradient, no objects. Character: Alex, a young woman in her early 20s with a chin-length wavy chestnut-brown bob that stays above the shoulders (no hair over the neck or shoulders), warm light skin, hazel eyes and a soft friendly face, wearing a periwinkle-blue fitted short-sleeve t-shirt, dark blue jeans and white sneakers. The clothes are fitted, no loose flowing fabric. Portrait 2:3.
+
+============================================================
+2B. PLAYER (Alex) - FACES (use her figure as the reference image)
+============================================================
+Use the attached full-body image as the exact reference: this is the same character, the same face, the same skin tone, the same hair, the same style and line quality. Create a HEAD SHEET: the character's head and a short neck only, on a solid flat bright green (#00FF00) background, laid out as a grid of exactly 4 columns and 3 rows of equal cells. Every head is drawn the same size, the same angle (perfectly front view, not tilted), at the same position in its cell, with the neck cut straight across at the collarbone, no shoulders, no clothing. Hair exactly as in the reference. Wide green gaps between cells, nothing touching, no grid lines, no borders, no labels, no numbers, no text. Flat even lighting, no cast shadows. Reading left to right, row by row: 1 neutral calm face, mouth closed. 2 the neutral face with the mouth open mid-word, talking. 3 the neutral face with the eyes fully closed, a blink. 4 warm open smile. 5 sad, inner eyebrows raised, small frown. 6 angry, eyebrows pulled into a V, tight mouth. 7 surprised, eyebrows high, small open O mouth. 8 worried, eyebrows tilted up in the middle, mouth slightly wavy. 9 smug, one eyebrow raised, a sideways smirk. 10 big laughing open-mouth smile with the eyes squeezed shut. 11 crying, tears on the cheeks, mouth trembling. 12 embarrassed, blushing cheeks, small shy smile, eyes glancing down. Landscape 4:3.
+
+============================================================
+3A. LEO - FIGURE
+============================================================
+Episode-style mobile visual novel character art, clean semi-realistic 2D digital illustration, soft cel shading, smooth clean lineart, soft vibrant colours, no text, no watermark. FULL-BODY character reference for a cutout animation rig. One single character, perfectly front view, standing straight, in a relaxed A-pose: both arms held straight and relaxed about 35 degrees away from the body, hands open with fingers together and palms facing the thighs, hands clear of the body; legs straight and slightly apart, about shoulder width, both feet pointing straight forward, flat on the ground. The whole body is visible from the top of the head to the soles of the shoes, centred, filling about 92% of the image height, with space on both sides. Perfectly symmetrical posture, neutral calm expression, mouth closed, looking straight at the viewer. Flat, even, soft lighting with NO cast shadows, no rim light, no ground shadow. Background: one solid flat bright green (#00FF00), no floor, no gradient, no objects. Character: Leo, a handsome, mysterious man in his late 20s with tan skin, short slightly messy dark navy-black hair, sharp dark eyes and a defined jaw, wearing a teal crew-neck t-shirt under an open fitted black leather jacket, dark jeans and black boots. The clothes are fitted, no loose flowing fabric, the jacket ends at the hips. Portrait 2:3.
+
+============================================================
+3B. LEO - FACES (use his figure as the reference image)
+============================================================
+Use the attached full-body image as the exact reference: this is the same character, the same face, the same skin tone, the same hair, the same style and line quality. Create a HEAD SHEET: the character's head and a short neck only, on a solid flat bright green (#00FF00) background, laid out as a grid of exactly 4 columns and 3 rows of equal cells. Every head is drawn the same size, the same angle (perfectly front view, not tilted), at the same position in its cell, with the neck cut straight across at the collarbone, no shoulders, no clothing. Hair exactly as in the reference. Wide green gaps between cells, nothing touching, no grid lines, no borders, no labels, no numbers, no text. Flat even lighting, no cast shadows. Reading left to right, row by row: 1 neutral calm face, mouth closed. 2 the neutral face with the mouth open mid-word, talking. 3 the neutral face with the eyes fully closed, a blink. 4 warm open smile. 5 sad, inner eyebrows raised, small frown. 6 angry, eyebrows pulled into a V, tight mouth. 7 surprised, eyebrows high, small open O mouth. 8 worried, eyebrows tilted up in the middle, mouth slightly wavy. 9 smug, one eyebrow raised, a sideways smirk. 10 big laughing open-mouth smile with the eyes squeezed shut. 11 crying, tears on the cheeks, mouth trembling. 12 embarrassed, blushing cheeks, small shy smile, eyes glancing down. Landscape 4:3.
+
+============================================================
+WHAT I DO WITH THEM
+============================================================
+Figure: I cut head-less body into torso/pelvis, upper arms, forearms with hands, and legs, with overlap at every joint, then bend the elbows, knees and waist smoothly (mesh-style) instead of rotating stiff tubes. Faces: swapped in for expressions, talking and blinking, with the neck blended into the body. Hand poses (point, fist, wave) are an optional extra later, only if you want them.
+If you would rather skip the green background, plain white works too: change "#00FF00" to "white" in every prompt.

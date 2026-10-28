@@ -109,6 +109,9 @@ For full body animation from one set of cut pieces, put the parts in `Characters
 - Outfits: a sibling folder `rig_<outfit>/` (for example `rig_formal/`) with the pieces that change, named the same. Pieces not in it keep the default look. Switch with `outfit=formal` on the character line.
 - Pieces can be any size; the engine normalises arm, leg and head proportions against the torso. Add `headsize=1.1` to the character line to scale the head.
 
+**Best quality: cut from one painted figure.** Generate one full-body figure per character (front view, relaxed A-pose, flat green background) and one sheet of 12 heads, then run `Tools/RigCutter` (see its README; the prompts are in `Docs/RIG_ART_PROMPTS.txt`). It writes the pieces and a `rig.json` into `rig/`. With `rig.json` present the engine skips all proportion fixing, uses the exact joint positions, and bends the elbows smoothly instead of hinging two stiff pieces. Heads go behind the torso so the neck tucks into the collar.
+
+
 The puppet gets gestures (`@MAYA does wave`), arm poses per emotion, walking leg swing, head tilt, hair sway, lip flap and blinking with no animation work. It takes priority over single-image folders, so delete `rig/` to go back to those.
 
 ## Item close-ups, icons and covers

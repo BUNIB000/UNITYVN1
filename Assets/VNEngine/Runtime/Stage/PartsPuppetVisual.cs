@@ -21,6 +21,21 @@ namespace VNEngine
     /// </summary>
     public sealed class PartsPuppetVisual : MonoBehaviour, ICharacterVisual
     {
+        // Joint data written by the rig cutter next to the pieces (Characters/NAME/rig/rig.json). When it is there the pieces
+        // were cut from one painted figure: no proportion fixing, exact joints, and arms that bend smoothly at the elbow.
+        [Serializable] sealed class RigBox { public float w, h; }
+        [Serializable] sealed class RigArm { public float x, y, py, e; }
+        [Serializable] sealed class RigLeg { public float x, y; }
+        [Serializable] sealed class RigHead { public float dy; }
+        [Serializable] sealed class RigMeta { public int v; public RigBox torso; public RigArm arm_l, arm_r; public RigLeg leg_l, leg_r; public RigHead head; public float feet; }
+        const int Strips = 10; // slices per half of a bending joint
+        RigMeta meta;
+        Transform[] armTop = new Transform[2];
+        readonly List<SpriteRenderer>[] armSrs = { new List<SpriteRenderer>(), new List<SpriteRenderer>() };
+        readonly List<Transform>[] armNodes = { new List<Transform>(), new List<Transform>() };
+        readonly bool[] armTucked = new bool[2];
+        readonly bool[] hasForearm = new bool[2];
+
         const float Rad = Mathf.Deg2Rad;
         static readonly HashSet<string> Holds = new HashSet<string> { "think", "lean", "pout", "faint", "shy", "sulk" };
 
@@ -65,6 +80,8 @@ namespace VNEngine
             var v = go.AddComponent<PartsPuppetVisual>();
             foreach (var kv in set) v.main[kv.Key] = kv.Value;
             v.charFolder = folder;
+            var metaText = Resources.Load<TextAsset>(folder + "/rig/rig");
+            if (metaText != null) { try { var m = JsonUtility.FromJson<RigMeta>(metaText.text); if (m != null && m.v == 2 && m.torso != null && m.head != null && m.arm_l != null && m.arm_r != null && m.leg_l != null && m.leg_r != null) v.meta = m; } catch (Exception) { } }
             if (def != null && def.Options.TryGetValue("headsize", out var hs) && Util.TryFloat(hs, out var hv)) v.headMul = hv;
             v.Build();
             if (def != null && def.Options.TryGetValue("outfit", out var o)) v.SetOutfit("outfit", o);
@@ -91,6 +108,23 @@ namespace VNEngine
         void Build()
         {
             body = Pivot("body", transform);
+            if (meta != null)
+            {
+                torsoPivot = Pivot("torso", body);
+                torsoSr = Piece("torso image", torsoPivot, 3);
+                headPivot = Pivot("head", body);
+                headScale = Pivot("head scale", headPivot);
+                headSr = Piece("head image", headScale, 2);
+                for (int i = 0; i < 2; i++)
+                {
+                    legPivot[i] = Pivot(i == 0 ? "leg L" : "leg R", body);
+                    legSr[i] = Piece("leg image", legPivot[i], 0);
+                    shoulder[i] = Pivot(i == 0 ? "arm L" : "arm R", body);
+                    armTop[i] = Pivot("arm top", shoulder[i]);
+                }
+                Layout();
+                return;
+            }
             torsoPivot = Pivot("torso", body);
             torsoSr = Piece("torso image", torsoPivot, 3);
             headPivot = Pivot("head", body);
@@ -143,8 +177,101 @@ namespace VNEngine
             sr.transform.localPosition = new Vector3(x, fromBottom ? -b.min.y : -b.max.y, 0);
         }
 
+        // A slice of a sprite: rows f0..f1 (fractions from the top), hanging from its top centre.
+        static Sprite Slice(Sprite src, float f0, float f1)
+        {
+            var r = src.textureRect;
+            f0 = Mathf.Clamp01(f0); f1 = Mathf.Clamp(f1, f0 + 0.001f, 1f);
+            var rect = new Rect(r.x, r.yMax - f1 * r.height, r.width, (f1 - f0) * r.height);
+            return Sprite.Create(src.texture, rect, new Vector2(0.5f, 1f), src.pixelsPerUnit, 0, SpriteMeshType.FullRect);
+        }
+
+        SpriteRenderer ArmPiece(int i, string name, Transform parent, Sprite sprite, bool flip)
+        {
+            var sr = Piece(name, parent, 0);
+            sr.sprite = sprite; sr.flipX = flip;
+            armSrs[i].Add(sr);
+            return sr;
+        }
+
+        // The arm is a rigid upper part, then a chain of thin slices that each turn a little more than the last, so the elbow curves.
+        void BuildArm(int i, float u)
+        {
+            foreach (var sr in armSrs[i]) all.Remove(sr);
+            armSrs[i].Clear(); armNodes[i].Clear();
+            for (int c = armTop[i].childCount - 1; c >= 0; c--) Destroy(armTop[i].GetChild(c).gameObject);
+            var m = i == 0 ? meta.arm_l : meta.arm_r;
+            shoulder[i].localPosition = new Vector3(m.x * u, torsoTop - m.y * u, 0);
+            armTop[i].localPosition = new Vector3(0, m.py * u, 0);
+            var up = Side("upper_arm", i, out bool upFlip); var fore = Side("forearm", i, out bool foreFlip);
+            hasForearm[i] = fore != null;
+            if (up == null) return;
+            float uh = up.bounds.size.y, e = Mathf.Min(m.e * u, uh);
+            // upper arm, rigid down to 85% of the way to the elbow
+            var rigid = ArmPiece(i, "upper arm", armTop[i], Slice(up, 0f, 0.85f * e / uh), upFlip);
+            Transform parent = Pivot("joint", armTop[i]);
+            parent.localPosition = new Vector3(0, -0.85f * e * 0.99f, 0);
+            if (fore == null)
+            {
+                ArmPiece(i, "upper arm end", parent, Slice(up, 0.85f * e / uh, 1f), upFlip);
+                return;
+            }
+            float fh = fore.bounds.size.y;
+            float upStart = 0.85f * e / uh, upDf = (e / uh - upStart) / Strips, upStep = upDf * uh;
+            float foDf = 0.12f / Strips, foStep = foDf * fh;
+            Transform node = parent; float prevStep = 0;
+            for (int k = 0; k < Strips * 2 + 1; k++)
+            {
+                Sprite sp; bool flip; float step;
+                if (k < Strips) { float f0 = upStart + k * upDf; sp = Slice(up, f0, Mathf.Min(1f, f0 + 4 * upDf)); flip = upFlip; step = upStep; }
+                else if (k < Strips * 2) { float f0 = (k - Strips) * foDf; sp = Slice(fore, f0, Mathf.Min(1f, f0 + 4 * foDf)); flip = foreFlip; step = foStep; }
+                else { sp = Slice(fore, 0.12f, 1f); flip = foreFlip; step = 0; }
+                if (k > 0)
+                {
+                    var n = Pivot("slice " + k, node);
+                    n.localPosition = new Vector3(0, -prevStep * 0.97f, 0);
+                    node = n; armNodes[i].Add(n);
+                }
+                ArmPiece(i, "slice", node, sp, flip);
+                prevStep = step;
+            }
+            SetArmLayer(i, true, true);
+        }
+
+        void SetArmLayer(int i, bool tuck, bool force = false)
+        {
+            if (!force && armTucked[i] == tuck) return;
+            armTucked[i] = tuck;
+            int b = tuck ? -60 : 10;
+            for (int k = 0; k < armSrs[i].Count; k++) armSrs[i][k].sortingOrder = b + k;
+        }
+
+        float torsoTop;
+
+        void LayoutExact()
+        {
+            var torso = Lookup("torso"); var head0 = Lookup("head");
+            float u = 1f / torso.pixelsPerUnit;
+            torsoTop = meta.feet * u;
+            nativeHeight = torsoTop + head0.bounds.size.y - meta.head.dy * u;
+            torsoPivot.localPosition = new Vector3(0, torsoTop, 0);
+            Hang(torsoSr, torso, false);
+            headPivot.localPosition = new Vector3(0, torsoTop, 0);
+            headScale.localPosition = new Vector3(0, -meta.head.dy * u, 0);
+            RefreshHead();
+            for (int i = 0; i < 2; i++)
+            {
+                var m = i == 0 ? meta.leg_l : meta.leg_r;
+                legPivot[i].localPosition = new Vector3(m.x * u, torsoTop - m.y * u, 0);
+                var leg = Side("leg", i, out bool flip);
+                Hang(legSr[i], leg, flip);
+                BuildArm(i, u);
+            }
+        }
+
         void Layout()
         {
+            if (meta != null) { LayoutExact(); return; }
             var torso = Lookup("torso"); var head0 = Lookup("head");
             float th = torso.bounds.size.y, tw = torso.bounds.size.x;
             var legs = new Sprite[2]; var legFlip = new bool[2];
@@ -333,11 +460,20 @@ namespace VNEngine
                 arms[i][1] += (low - arms[i][1]) * r;
 
                 float s = i == 0 ? -1f : 1f;
+                bool tuck = Mathf.Abs(arms[i][0]) < 40f && Mathf.Abs(arms[i][0] + arms[i][1]) < 70f;
+                if (meta != null)
+                {
+                    bool hasF = hasForearm[i];
+                    shoulder[i].localRotation = Quaternion.Euler(0, 0, s * (hasF ? arms[i][0] : arms[i][0] + arms[i][1] * 0.5f));
+                    var step = Quaternion.Euler(0, 0, s * arms[i][1] / (Strips * 2));
+                    foreach (var n in armNodes[i]) n.localRotation = step;
+                    SetArmLayer(i, tuck);
+                    continue;
+                }
                 bool hasFore = foreSr[i].sprite != null;
                 shoulder[i].localRotation = Quaternion.Euler(0, 0, s * (hasFore ? arms[i][0] : arms[i][0] + arms[i][1] * 0.5f));
                 elbow[i].localRotation = Quaternion.Euler(0, 0, s * arms[i][1]);
                 // arms hanging close to the body tuck behind the torso so its sleeves hide the shoulder joins
-                bool tuck = Mathf.Abs(arms[i][0]) < 40f && Mathf.Abs(arms[i][0] + arms[i][1]) < 70f;
                 upperSr[i].sortingOrder = tuck ? -2 : 4;
                 foreSr[i].sortingOrder = tuck ? -1 : 5;
             }
@@ -357,7 +493,7 @@ namespace VNEngine
             float tiltV = (headTilt - lastTilt) / Mathf.Max(dt, 0.0001f); lastTilt = headTilt;
             swayV += -tiltV * 0.02f - sway * 0.25f; swayV *= 0.8f; sway += swayV * 0.5f;
             sway = Mathf.Clamp(sway + (walking ? Mathf.Sin(walkPhase * 2f) * 0.6f : 0f), -25f, 25f);
-            hairPivot.localRotation = Quaternion.Euler(0, 0, sway * 0.35f);
+            if (hairPivot != null) hairPivot.localRotation = Quaternion.Euler(0, 0, sway * 0.35f);
         }
     }
 }
