@@ -342,6 +342,30 @@ const Art = (() => {
     }
     return null;
   }
+  // Where the hand should go for poses that touch the body. Only used by puppets cut from a figure (Rig.ik), which can
+  // reach the spot with their real arm lengths; everything else keeps using the angles above.
+  function gestureGoal(gesture, near) {
+    switch (gesture) {
+      case "think": return near ? "chin" : null;
+      case "cry": return "eyes";
+      case "love": case "swoon": case "blush": case "shy": return "cheek";
+      case "gasp": case "surprised": case "flinch": case "shocked": return near ? "mouth" : null;
+      case "angry": case "stomp": return "hip";
+      case "laugh": case "giggle": return near ? "mouth" : null;
+      case "pout": return "cross";
+    }
+    return null;
+  }
+  function emotionGoal(emotion, near) {
+    switch (emotion) {
+      case "angry": return "hip";
+      case "smug": return near ? "hip" : null;
+      case "think": return near ? "chin" : null;
+      case "worried": case "scared": case "embarrassed": return "chest";
+      case "love": return "cheek";
+    }
+    return null;
+  }
   function emotionPose(emotion, near) {
     switch (emotion) {
       case "angry": return [28, -62];
@@ -609,5 +633,5 @@ const Art = (() => {
     return c;
   }
 
-  return { background, clearCache, drawCharacter, makeLook, FACES, gesturePose, emotionPose, REST, item, hex, shade, alpha, hash, rr, OUTFITS };
+  return { background, clearCache, drawCharacter, makeLook, FACES, gesturePose, emotionPose, gestureGoal, emotionGoal, REST, item, hex, shade, alpha, hash, rr, OUTFITS };
 })();

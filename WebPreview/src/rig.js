@@ -83,6 +83,27 @@ const Rig = (() => {
     if (m && m.v !== 2) m = null;
     metas.set(id, m); return m;
   }
+  // Two-bone solve: the arm angles ([upper, lower], 0 = hanging down, positive = away from the body) that put the fingertips
+  // on a named spot of the body. Spots are measured from the neck, in head and torso sizes, so they fit any character.
+  function ik(id, s, goal) {
+    const mt = meta(id); if (!mt) return null;
+    const sgn = s === 0 ? -1 : 1, m = mt[s === 0 ? "arm_l" : "arm_r"];
+    const fo = side(id, "forearm", sgn), hd = part(id, "head"); if (!fo || !hd) return null;
+    const L1 = m.e - m.py, L2 = 0.93 * fo.im.naturalHeight, H1 = hd.naturalHeight - mt.head.dy, th = mt.torso.h, tw = mt.torso.w;
+    const G = { chin: [0.10 * H1, -0.22 * H1], mouth: [0.07 * H1, -0.31 * H1], cheek: [0.33 * H1, -0.33 * H1], eyes: [0.24 * H1, -0.52 * H1],
+      chest: [0.14 * tw, 0.22 * th], hip: [0.47 * tw, 0.55 * th], cross: [-0.36 * tw, 0.24 * th] }[goal];
+    if (!G) return null;
+    const tx = sgn * G[0], ty = G[1], dx = tx - m.x, dy = ty - m.y;
+    let d = Math.hypot(dx, dy); d = Math.max(Math.abs(L1 - L2) + 1, Math.min(L1 + L2 - 1, d));
+    const base = Math.atan2(dy, dx), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
+    const cand = [base + A, base - A].map(a => ({ x: m.x + L1 * Math.cos(a), y: m.y + L1 * Math.sin(a) }));
+    const E = cand[0].y > cand[1].y ? cand[0] : cand[1];
+    const hx = m.x + (tx - m.x) * d / Math.hypot(dx, dy), hy = m.y + (ty - m.y) * d / Math.hypot(dx, dy);
+    const a0 = sgn * Math.atan2(E.x - m.x, E.y - m.y) / RAD, abs = sgn * Math.atan2(hx - E.x, hy - E.y) / RAD;
+    let a1 = abs - a0; while (a1 > 180) a1 -= 360; while (a1 < -180) a1 += 360;
+    return [a0, a1];
+  }
+  const hasExact = id => !!meta(id) && has(id);
   function setMeta(id, m) { try { if (m) localStorage.setItem("vn_rigmeta_" + id, JSON.stringify(m)); else localStorage.removeItem("vn_rigmeta_" + id); } catch (e) {} metas.delete(id); }
   function drawExact(g, ch, t, mt, torso, head0) {
     const id = ch.id, head = pickHead(id, ch, t < ch.blinkUntil) || head0;
@@ -174,5 +195,5 @@ const Rig = (() => {
     g.restore();
     return true;
   }
-  return { has, draw, headMul, setHeadMul, setMeta };
+  return { has, hasExact, ik, draw, headMul, setHeadMul, setMeta };
 })();

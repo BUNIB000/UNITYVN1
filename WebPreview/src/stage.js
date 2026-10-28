@@ -135,6 +135,13 @@ class StageChar {
         const gp = Art.gesturePose(this.gesture, Math.min(k, 0.999), Clock.now, s === near);
         if (gp) { const [p, e] = gp; target = [target[0] + (p[0] - target[0]) * e, target[1] + (p[1] - target[1]) * e]; }
       }
+      // poses that touch the body: let a figure-cut puppet solve its own arm angles so the hand really gets there
+      if (typeof Rig !== "undefined" && Rig.hasExact(this.id)) {
+        let goal = Art.emotionGoal(this.emotion, s === near), gw = goal ? 1 : 0;
+        if (this.gesture) { const gg = Art.gestureGoal(this.gesture, s === near), gp2 = Art.gesturePose(this.gesture, Math.min(k, 0.999), Clock.now, s === near); if (gg && gp2) { goal = gg; gw = gp2[1]; } }
+        const ik = goal && Rig.ik(this.id, s, goal);
+        if (ik) target = [target[0] + (ik[0] - target[0]) * gw, target[1] + (ik[1] - target[1]) * gw];
+      }
       if (this.walk) { const sw = Math.sin(this.walkPhase + (s ? Math.PI : 0)) * 10; target = [target[0] + sw, target[1] - 8]; }
       target[0] += Math.sin(t * 1.7 + s) * 1.2;
       const r = 1 - Math.exp(-dt * 11);
