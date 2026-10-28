@@ -1719,7 +1719,7 @@ const Rig = (() => {
     const ls = legH ? Math.max(0.7, Math.min(1.7, 1.3 * th / legH)) : 1;
     const uaL = side(id, "upper_arm", -1), foL = side(id, "forearm", -1);
     const armLen = (uaL ? uaL.im.naturalHeight : 0) + (foL ? foL.im.naturalHeight : 0);
-    const as = armLen ? Math.max(0.6, Math.min(1.7, 1.42 * th / armLen)) : 1;
+    const as = armLen ? Math.max(0.6, Math.min(1.7, 1.12 * th / armLen)) : 1;
     const hk = headScale(id, head0, torso), hH = head.naturalHeight * hk, hW = head.naturalWidth * hk;
     const total = 0.92 * hH + th + 0.88 * legH * ls, k = 1000 / total;
     g.save();

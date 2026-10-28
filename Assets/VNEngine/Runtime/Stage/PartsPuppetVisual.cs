@@ -155,7 +155,7 @@ namespace VNEngine
             var up = new Sprite[2]; var fore = new Sprite[2]; var upFlip = new bool[2]; var foreFlip = new bool[2];
             for (int i = 0; i < 2; i++) { up[i] = Side("upper_arm", i, out upFlip[i]); fore[i] = Side("forearm", i, out foreFlip[i]); }
             float armLen = (up[0] != null ? up[0].bounds.size.y : 0) + (fore[0] != null ? fore[0].bounds.size.y : 0);
-            float asc = armLen > 0 ? Mathf.Clamp(1.42f * th / armLen, 0.6f, 1.7f) : 1f;
+            float asc = armLen > 0 ? Mathf.Clamp(1.12f * th / armLen, 0.6f, 1.7f) : 1f;
 
             // Heads are drawn on their own area of the sheet, so match the head to the torso: about 0.72 of its height.
             float hk = Mathf.Clamp(0.72f * th / head0.bounds.size.y, 0.3f, 3f) * headMul;
