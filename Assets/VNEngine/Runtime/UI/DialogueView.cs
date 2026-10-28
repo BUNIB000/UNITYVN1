@@ -118,7 +118,7 @@ namespace VNEngine
             nameFill = UIKit.Image(nameTag, "Fill", ProceduralArt.RoundedRect(36), theme.defaultNameColor);
             nameText = UIKit.Text(nameTag, "Name", "", theme.nameFontSize, Color.white, TextAlignmentOptions.Center, true);
             UIKit.Stretch(nameText.rectTransform, 6);
-            nameText.enableWordWrapping = false;
+            UIKit.Wrap(nameText, false);
 
             nextArrow = UIKit.Image(bubble, "Next", ProceduralArt.Triangle("down"), theme.bubbleOutline).rectTransform;
             UIKit.Place(nextArrow, new Vector2(1f, 0f), new Vector2(0.5f, 0.5f), new Vector2(-48, 34), new Vector2(30, 30));

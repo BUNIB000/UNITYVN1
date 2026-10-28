@@ -238,7 +238,7 @@ namespace VNEngine
             UIKit.Stretch(viewport, 20);
             viewport.gameObject.AddComponent<RectMask2D>();
             var txt = UIKit.Text(viewport, "Text", "", 50, theme.bubbleTextColor, TextAlignmentOptions.Center);
-            txt.enableWordWrapping = false;
+            UIKit.Wrap(txt, false);
             var placeholder = UIKit.Text(viewport, "Placeholder", defaultValue ?? "", 50, new Color(0.5f, 0.5f, 0.55f), TextAlignmentOptions.Center);
             placeholder.fontStyle = FontStyles.Italic;
             var field = fieldRt.gameObject.AddComponent<TMP_InputField>();

@@ -10,6 +10,16 @@ namespace VNEngine
     /// <summary>Builds the engine's UI in code so there are no prefabs to wire up.</summary>
     public static class UIKit
     {
+        /// <summary>Word wrap on or off; the property was renamed in Unity 6.</summary>
+        public static void Wrap(TMP_Text t, bool on)
+        {
+#if UNITY_6000_0_OR_NEWER
+            t.textWrappingMode = on ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+#else
+            t.enableWordWrapping = on;
+#endif
+        }
+
         static TMP_FontAsset bodyFont, titleFont;
 
         public static TMP_FontAsset BodyFont
@@ -104,7 +114,7 @@ namespace VNEngine
             t.color = color;
             t.alignment = align;
             t.raycastTarget = false;
-            t.enableWordWrapping = true;
+            Wrap(t, true);
             t.richText = true;
             return t;
         }
