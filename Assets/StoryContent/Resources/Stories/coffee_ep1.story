@@ -7,9 +7,9 @@ cover: coffee_cover
 
 # ---- Cast ----
 # name= is what shows on the name tag. color= tints the tag (and the placeholder art).
-character PLAYER name="{player}" color=#7a9cff
-character MAYA name="Maya" color=#ff6f91 haircolor=#3b2230
-character LEO name="Leo" color=#46b39d haircolor=#20283a
+character PLAYER name="{player}" color=#7a9cff hair=loose
+character MAYA name="Maya" color=#ff6f91 haircolor=#3b2230 hair=ponytail outfit=apron
+character LEO name="Leo" color=#46b39d haircolor=#20283a hair=short outfit=jacket
 
 # ---- Scene 1 ----
 EXT. CITY STREET - MORNING
@@ -34,7 +34,7 @@ INT. COFFEE SHOP - DAY [dissolve 1.2]
 @ambience cafe_chatter
 
 @MAYA spot 1.0 230 0 and faces left
-@PLAYER enters from left to spot 1.0 90 0
+@PLAYER enters from left to spot 1.0 70 0
 &MAYA is wave
 MAYA (talk_excited)
 You must be {player}! Welcome to the Moonbean Café!
@@ -71,7 +71,8 @@ MAYA (nervous): Just... house rules. Anyway!
 # ---- A mysterious customer ----
 @sound door_bell
 @LEO enters from right to right and is idle_think
-@MAYA walks to left and faces right
+&PLAYER walks to center and faces right
+@MAYA walks to spot 1.0 62 0 and faces right
 
 LEO (talk_neutral)
 The usual. And tell the new hire to stop staring.

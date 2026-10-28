@@ -2,9 +2,9 @@ title: The Party
 series: Coffee & Secrets
 episode: 2
 
-character PLAYER name="{player}" color=#7a9cff
-character MAYA name="Maya" color=#ff6f91 haircolor=#3b2230
-character LEO name="Leo" color=#46b39d haircolor=#20283a
+character PLAYER name="{player}" color=#7a9cff hair=loose
+character MAYA name="Maya" color=#ff6f91 haircolor=#3b2230 hair=bun outfit=dress
+character LEO name="Leo" color=#46b39d haircolor=#20283a hair=short outfit=suit
 
 INT. BEDROOM - EVENING
 @music getting_ready
@@ -52,7 +52,9 @@ minigame rhythm title="Dance-Off" bpm=118 notes=20 lanes=3 need=65
         @MAYA is cheer
         MAYA (laugh): Croissants are on you!
 
-@MAYA walks to center and is talk_happy
+&LEO exits right
+@MAYA walks to spot 1.0 82 0 and is talk_happy
+@PLAYER faces left
 MAYA
 Thanks for being here. It's been a long time since this place felt like home.
 

@@ -65,3 +65,7 @@ Docs/                  writing, art and mini game guides
 ## Fonts
 
 Varela Round and Lilita One are included under the SIL Open Font License (see the OFL files next to the fonts).
+
+## Web preview
+
+`WebPreview/index.html` is a single-file browser version of the engine that plays the sample series on a phone: same story language, built-in character art, all 13 mini games, and a script lab. Rebuild it after editing a story or anything in `WebPreview/src/` with `python3 WebPreview/build.py`.
