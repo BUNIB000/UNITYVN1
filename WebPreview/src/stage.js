@@ -164,6 +164,7 @@ class StageChar {
     g.rotate(P.rot * (this.facing || 1) * Math.PI / 180);
     g.scale(P.sx, P.sy);
     g.scale(f.h / 1000, f.h / 1000);
+    if (Rig.has(this.id) && Rig.draw(g, this, t)) { g.restore(); return; }
     if (ArtStore.hasChar(this.id) && this.drawImage(g, t)) { g.restore(); return; }
     Art.drawCharacter(g, this.look, {
       emotion: this.emotion, time: t, blink: t < this.blinkUntil, mouthOpen: this.mouthOpen,

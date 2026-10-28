@@ -174,15 +174,20 @@ const ArtStore = (() => {
     if (!opts.figures) {
       return boxes.map(b => { const pad = Math.round(Math.max(b.w, b.h) * 0.04), o = document.createElement("canvas"); o.width = b.w + pad * 2; o.height = b.h + pad * 2; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, pad, pad, b.w, b.h); return o; });
     }
-    const centers = boxes.map(b => footCenter(p, w, b));
-    const half = Math.max(1, ...boxes.map((b, i) => Math.max(centers[i] - b.x, b.x + b.w - centers[i])));
-    const tall = Math.max(1, ...boxes.map(b => b.h));
+    // alignFirst: only the first n pieces (the heads of a parts sheet) share a canvas; the rest are cut tight.
+    const n = opts.alignFirst || boxes.length;
+    const group = boxes.slice(0, n);
+    const centers = group.map(b => footCenter(p, w, b));
+    const half = Math.max(1, ...group.map((b, i) => Math.max(centers[i] - b.x, b.x + b.w - centers[i])));
+    const tall = Math.max(1, ...group.map(b => b.h));
     const top = Math.round(tall * 0.05), ow = Math.ceil(half * 2 + tall * 0.04), oh = tall + top;
-    return boxes.map((b, i) => {
+    const aligned = group.map((b, i) => {
       const o = document.createElement("canvas"); o.width = ow; o.height = oh;
       o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, Math.round(ow / 2 - (centers[i] - b.x)), oh - b.h, b.w, b.h);
       return o;
     });
+    const rest = boxes.slice(n).map(b => { const o = document.createElement("canvas"); o.width = b.w; o.height = b.h; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h); return o; });
+    return aligned.concat(rest);
   }
   async function remove(key) { mem.delete(key); await idb("readwrite", st => st.delete(key)); changed(); }
   async function clear(prefix) {

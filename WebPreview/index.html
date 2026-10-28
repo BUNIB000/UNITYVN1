@@ -1596,15 +1596,20 @@ const ArtStore = (() => {
     if (!opts.figures) {
       return boxes.map(b => { const pad = Math.round(Math.max(b.w, b.h) * 0.04), o = document.createElement("canvas"); o.width = b.w + pad * 2; o.height = b.h + pad * 2; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, pad, pad, b.w, b.h); return o; });
     }
-    const centers = boxes.map(b => footCenter(p, w, b));
-    const half = Math.max(1, ...boxes.map((b, i) => Math.max(centers[i] - b.x, b.x + b.w - centers[i])));
-    const tall = Math.max(1, ...boxes.map(b => b.h));
+    // alignFirst: only the first n pieces (the heads of a parts sheet) share a canvas; the rest are cut tight.
+    const n = opts.alignFirst || boxes.length;
+    const group = boxes.slice(0, n);
+    const centers = group.map(b => footCenter(p, w, b));
+    const half = Math.max(1, ...group.map((b, i) => Math.max(centers[i] - b.x, b.x + b.w - centers[i])));
+    const tall = Math.max(1, ...group.map(b => b.h));
     const top = Math.round(tall * 0.05), ow = Math.ceil(half * 2 + tall * 0.04), oh = tall + top;
-    return boxes.map((b, i) => {
+    const aligned = group.map((b, i) => {
       const o = document.createElement("canvas"); o.width = ow; o.height = oh;
       o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, Math.round(ow / 2 - (centers[i] - b.x)), oh - b.h, b.w, b.h);
       return o;
     });
+    const rest = boxes.slice(n).map(b => { const o = document.createElement("canvas"); o.width = b.w; o.height = b.h; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h); return o; });
+    return aligned.concat(rest);
   }
   async function remove(key) { mem.delete(key); await idb("readwrite", st => st.delete(key)); changed(); }
   async function clear(prefix) {
@@ -1811,6 +1816,7 @@ class StageChar {
     g.rotate(P.rot * (this.facing || 1) * Math.PI / 180);
     g.scale(P.sx, P.sy);
     g.scale(f.h / 1000, f.h / 1000);
+    if (Rig.has(this.id) && Rig.draw(g, this, t)) { g.restore(); return; }
     if (ArtStore.hasChar(this.id) && this.drawImage(g, t)) { g.restore(); return; }
     Art.drawCharacter(g, this.look, {
       emotion: this.emotion, time: t, blink: t < this.blinkUntil, mouthOpen: this.mouthOpen,
@@ -3474,6 +3480,11 @@ const Player = (() => {
     { id: "full2", name: "Full sheet 2 (10)", rows: 2, cols: 5, names: ["think", "laugh", "cry", "smug", "love", "wave", "cheer", "point", "shrug", "dance"] },
     { id: "props", name: "Props (3)", rows: 1, cols: 3, props: true, keys: ["img/old_key", "mg/timing/icon", "mg/memory/card_back"] },
   ];
+  // Parts for the puppet mode, in the order of the parts sheet (3 rows of 5). Left and right are as seen on screen.
+  const RIG_HEADS_EXTRA = ["head_worried", "head_embarrassed", "head_scared", "head_think", "head_laugh", "head_cry", "head_smug", "head_love"];
+  const RIG_PARTS = ["head", "head_happy", "head_sad", "head_angry", "head_surprised", "head_talk", "head_blink", "torso", "upper_arm_l", "upper_arm_r", "forearm_l", "forearm_r", "leg_l", "leg_r", "hair_back"];
+  SHEETS.splice(4, 0, { id: "parts", name: "Parts sheet (15)", rows: 3, cols: 5, rig: true, align: 7, names: RIG_PARTS });
+  SHEETS.splice(5, 0, { id: "heads", name: "Extra heads (8)", rows: 2, cols: 4, rig: true, align: 8, names: RIG_HEADS_EXTRA });
   const EXTRA_KEYS = [["img/old_key", "old key"], ["mg/timing/icon", "timing icon"], ["mg/memory/card_back", "memory card back"], ["cover/coffee_cover", "cover"]];
   const artState = { tab: "chars", who: null, outfit: "base", removeBg: true };
   let picker = null;
@@ -3556,6 +3567,12 @@ const Player = (() => {
       slotGrid("Expressions", EXPR, key, imp);
       slotGrid("Talking and blinking", FRAMES, key, imp);
       slotGrid("Gestures", POSES, key, imp);
+      slotGrid("Parts for full animation (head, torso, arms, legs)", RIG_PARTS.concat(RIG_HEADS_EXTRA), n => `char/${who}/rig/${n}`, imp);
+      if (Rig.has(who)) {
+        const hs = UI.el("div", "art-row", `<label for="art-headk">Head size</label><input id="art-headk" type="range" min="0.5" max="1.6" step="0.02" value="${Rig.headMul(who)}" style="flex:1;min-width:8em"><span class="note">Parts are on: this character is animated limb by limb.</span>`);
+        hs.querySelector("input").oninput = e => Rig.setHeadMul(who, +e.target.value);
+        body.appendChild(hs);
+      }
       const clr = UI.el("button", "btn alt", `Clear ${UI.esc(who)}'s art`); clr.style.alignSelf = "flex-start";
       clr.onclick = async () => { await ArtStore.clear(`char/${who}/`); renderArt(sc); };
       body.appendChild(clr);
@@ -3583,14 +3600,15 @@ const Player = (() => {
       const L = SHEETS.find(x => x.id === st.layout), short = !L.cast && !L.props;
       let o = `<option value="">Skip</option>`;
       for (const id of ids) o += `<optgroup label="${UI.esc(nameOf(id))}">${[...EXPR, ...FRAMES, ...POSES].map(n => `<option value="char/${id}/${artState.outfit}/${n}">${short && id === st.who ? "" : UI.esc(nameOf(id)) + ": "}${n.replace(/_/g, " ")}</option>`).join("")}</optgroup>`;
+      for (const id of ids) o += `<optgroup label="${UI.esc(nameOf(id))} parts">${RIG_PARTS.concat(RIG_HEADS_EXTRA).map(n => `<option value="char/${id}/rig/${n}">${short && id === st.who ? "" : UI.esc(nameOf(id)) + ": "}${n.replace(/_/g, " ")}</option>`).join("")}</optgroup>`;
       o += `<optgroup label="Props and games">${EXTRA_KEYS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</optgroup>`;
       return o;
     };
-    const defaults = L => st.pieces.map((_, i) => L.cast ? (ids[i] ? `char/${ids[i]}/${artState.outfit}/neutral` : "") : L.props ? (L.keys[i] || "") : (L.names[i] ? `char/${st.who}/${artState.outfit}/${L.names[i]}` : ""));
+    const defaults = L => st.pieces.map((_, i) => L.cast ? (ids[i] ? `char/${ids[i]}/${artState.outfit}/neutral` : "") : L.props ? (L.keys[i] || "") : L.rig ? (L.names[i] ? `char/${st.who}/rig/${L.names[i]}` : "") : (L.names[i] ? `char/${st.who}/${artState.outfit}/${L.names[i]}` : ""));
     const cut = async () => {
       const L = SHEETS.find(x => x.id === st.layout);
       s.innerHTML = `<h2>Cutting the sheet…</h2>`;
-      try { st.pieces = await ArtStore.cutSheet(file, { removeBg: artState.removeBg, figures: !L.props, rows: st.grid ? L.rows : 0, cols: st.grid ? L.cols : 0 }); }
+      try { st.pieces = await ArtStore.cutSheet(file, { removeBg: artState.removeBg, figures: !L.props && !L.rig, alignFirst: L.rig ? L.align : 0, rows: st.grid || L.rig ? L.rows : 0, cols: st.grid || L.rig ? L.cols : 0 }); }
       catch (e) { UI.toast(e.message); s.remove(); return; }
       st.targets = defaults(L);
       render();
@@ -3601,12 +3619,12 @@ const Player = (() => {
       s.innerHTML = `<button class="close" aria-label="Close">${ICON.close}</button><h2>Cut a sheet</h2>
         <div class="art-row"><label for="cut-layout">Layout</label><select id="cut-layout">${SHEETS.map(x => `<option value="${x.id}" ${x.id === st.layout ? "selected" : ""}>${x.name}</option>`).join("")}</select>
         ${L.cast || L.props ? "" : `<label for="cut-who">For</label><select id="cut-who">${ids.map(id => `<option value="${id}" ${id === st.who ? "selected" : ""}>${UI.esc(nameOf(id))}</option>`).join("")}</select>`}</div>
-        <div class="art-row"><span class="seg"><button data-g="0" class="${st.grid ? "" : "on"}">Find figures</button><button data-g="1" class="${st.grid ? "on" : ""}">Cut as ${L.rows}×${L.cols} grid</button></span></div>
+        ${L.rig ? "" : `<div class="art-row"><span class="seg"><button data-g="0" class="${st.grid ? "" : "on"}">Find figures</button><button data-g="1" class="${st.grid ? "on" : ""}">Cut as ${L.rows}×${L.cols} grid</button></span></div>`}
         <p class="note ${got === expect ? "" : "warn"}">Found ${got} picture${got === 1 ? "" : "s"}${got === expect ? "." : `, but this layout has ${expect}. ${st.grid ? "Check the boxes below, or try Find figures." : "Try Cut as grid, or check the boxes below."}`} Change any box to put a picture somewhere else${artState.outfit !== "base" ? ` (outfit: ${UI.esc(artState.outfit)})` : ""}.</p>
         <div class="slots cut-grid">${st.pieces.map((c, i) => `<div class="slot filled"><img src="${c.toDataURL()}" alt=""><select data-i="${i}" aria-label="Where picture ${i + 1} goes">${options()}</select></div>`).join("")}</div>
         <div class="row" style="justify-content:flex-start;margin:0"><button class="btn" data-a="save">Save ${st.targets.filter(Boolean).length} picture${st.targets.filter(Boolean).length === 1 ? "" : "s"}</button><button class="btn alt" data-a="cancel">Cancel</button></div>`;
       s.querySelectorAll(".cut-grid select").forEach(sel => { sel.value = st.targets[+sel.dataset.i]; sel.onchange = () => { st.targets[+sel.dataset.i] = sel.value; render(); }; });
-      s.querySelector("#cut-layout").onchange = e => { st.layout = e.target.value; artState.sheet = st.layout; const N = SHEETS.find(x => x.id === st.layout); if (st.grid) cut(); else { st.targets = defaults(N); render(); } };
+      s.querySelector("#cut-layout").onchange = e => { st.layout = e.target.value; artState.sheet = st.layout; const N = SHEETS.find(x => x.id === st.layout); cut(); };
       const w = s.querySelector("#cut-who"); if (w) w.onchange = e => { st.who = e.target.value; st.targets = defaults(SHEETS.find(x => x.id === st.layout)); render(); };
       s.querySelectorAll(".seg button").forEach(b => b.onclick = () => { const g = b.dataset.g === "1"; if (g !== st.grid) { st.grid = g; cut(); } });
     };
