@@ -42,19 +42,25 @@ const Rig = (() => {
     if (!torso || !head0) return false;
     const head = pickHead(id, ch, t < ch.blinkUntil) || head0;
     const legL = side(id, "leg", -1), legR = side(id, "leg", 1);
+    const th = torso.naturalHeight, tw = torso.naturalWidth;
+    // the sheet pieces are drawn at whatever size filled their cell, so bring arms and legs to normal proportions
     const legH = Math.max(legL ? legL.im.naturalHeight : 0, legR ? legR.im.naturalHeight : 0);
-    const hk = headScale(id, head0, torso), hH = head0.naturalHeight * hk, th = torso.naturalHeight, tw = torso.naturalWidth;
-    const total = 0.92 * hH + th + 0.92 * legH, k = 1000 / total;
+    const ls = legH ? Math.max(0.7, Math.min(1.7, 1.3 * th / legH)) : 1;
+    const uaL = side(id, "upper_arm", -1), foL = side(id, "forearm", -1);
+    const armLen = (uaL ? uaL.im.naturalHeight : 0) + (foL ? foL.im.naturalHeight : 0);
+    const as = armLen ? Math.max(0.6, Math.min(1.7, 1.42 * th / armLen)) : 1;
+    const hk = headScale(id, head0, torso), hH = head.naturalHeight * hk, hW = head.naturalWidth * hk;
+    const total = 0.92 * hH + th + 0.88 * legH * ls, k = 1000 / total;
     g.save();
     g.scale(k, k);
-    g.translate(0, -(th + 0.92 * legH)); // origin: centre of the top of the torso
+    g.translate(0, -(th + 0.88 * legH * ls)); // origin: centre of the top of the torso
     // legs swing while walking
     const swing = ch.walk ? (ch.walk > 1 ? 30 : 20) : 0;
     [[legL, -1], [legR, 1]].forEach(([l, s]) => {
       if (!l) return;
-      g.save(); g.translate(s * tw * 0.2, th - l.im.naturalHeight * 0.08);
+      g.save(); g.translate(s * tw * 0.2, th - l.im.naturalHeight * ls * 0.12);
       g.rotate(swing * Math.sin(ch.walkPhase + (s < 0 ? 0 : Math.PI)) * RAD);
-      hang(g, l); g.restore();
+      g.scale(ls, ls); hang(g, l); g.restore();
     });
     g.drawImage(torso, -tw / 2, 0, tw, th);
     // head, with hair that trails behind it
@@ -63,16 +69,16 @@ const Rig = (() => {
     g.rotate((ch.headTilt || 0) * RAD);
     const hair = part(id, "hair_back");
     if (hair) { g.save(); g.translate(0, -hH * 0.92); g.rotate(-(ch.sway || 0) * 0.35 * RAD); g.scale(hk, hk); hang(g, { im: hair }); g.restore(); }
-    g.drawImage(head, -head.naturalWidth * hk / 2, -head.naturalHeight * hk, head.naturalWidth * hk, head.naturalHeight * hk);
+    g.drawImage(head, -hW / 2, -hH, hW, hH);
     g.restore();
     // arms: upper arm from the shoulder, forearm from the elbow
     for (const s of [-1, 1]) {
       const up = side(id, "upper_arm", s); if (!up) continue;
       const fore = side(id, "forearm", s), a = ch.arms[s < 0 ? 0 : 1];
-      const uw = up.im.naturalWidth, uh = up.im.naturalHeight;
+      const uw = up.im.naturalWidth * as, uh = up.im.naturalHeight;
       g.save(); g.translate(s * (tw / 2 - uw * 0.55), uw * 0.35);
       g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
-      hang(g, up);
+      g.scale(as, as); hang(g, up);
       if (fore) { g.translate(0, uh * 0.94); g.rotate(-s * a[1] * RAD); hang(g, fore); }
       g.restore();
     }

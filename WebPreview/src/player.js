@@ -501,9 +501,20 @@ const Player = (() => {
     const total = ["char/", "bg/", "img/", "cover/", "mg/"].reduce((s, p) => s + ArtStore.count(p), 0);
     sc.innerHTML = `<div class="lib-head"><h1>My art</h1><span>${total} image${total === 1 ? "" : "s"}</span></div>
       <p class="note">Tap a box to pick a picture from your phone. It replaces the built-in art right away in the episodes. Pictures stay on this device only. The art prompts doc lists what to make for each box.</p>
+      <div class="art-row" id="art-demo"></div>
       <div class="seg" id="art-tabs"><button data-v="chars">Characters</button><button data-v="bgs">Backgrounds</button><button data-v="extra">Props & games</button></div>
       <div id="art-body" style="display:flex;flex-direction:column;gap:.7em"></div>`;
     sc.querySelectorAll("#art-tabs button").forEach(b => { b.classList.toggle("on", b.dataset.v === artState.tab); b.onclick = () => { artState.tab = b.dataset.v; Audio2.sfx("click"); renderArt(sc); }; });
+    const demo = sc.querySelector("#art-demo");
+    const demoBtn = UI.el("button", "btn", total ? "Reload the test art" : "Load the test art");
+    demoBtn.onclick = async () => {
+      demoBtn.disabled = true; demoBtn.textContent = "Loading…";
+      try { await loadTestArt(n => { demoBtn.textContent = `Loading ${n}…`; }); Audio2.sfx("pop"); }
+      catch (e) { UI.toast(e.message || "Could not load the test art"); }
+      renderArt(sc);
+    };
+    demo.appendChild(demoBtn);
+    if (total) { const clr = UI.el("button", "btn alt", "Remove all my art"); clr.onclick = async () => { await ArtStore.clear(""); renderArt(sc); }; demo.appendChild(clr); }
     const body = sc.querySelector("#art-body");
     const slotGrid = (title, list, keyFor, opts) => {
       const wrap = UI.el("div", "", `<div class="sub">${UI.esc(title)}</div>`);
@@ -631,6 +642,24 @@ const Player = (() => {
       }
     };
     cut();
+  }
+  // The pictures you sent, already cut into pieces and published beside this page.
+  async function loadTestArt(progress) {
+    let man;
+    try { const r = await fetch("demo_art/manifest.json", { cache: "no-cache" }); if (!r.ok) throw 0; man = await r.json(); }
+    catch (e) { throw new Error("The test art is not available in this copy of the preview."); }
+    const keys = Object.keys(man); let done = 0;
+    const queue = keys.slice();
+    const worker = async () => {
+      while (queue.length) {
+        const k = queue.shift();
+        const r = await fetch("demo_art/" + man[k]); if (!r.ok) continue;
+        await ArtStore.putBlob(k, await r.blob());
+        progress(++done + "/" + keys.length);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    ArtStore.refresh();
   }
   function animationTest(id) {
     const cast = storyCast(), d = cast[id];

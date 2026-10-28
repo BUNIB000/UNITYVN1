@@ -189,6 +189,13 @@ const ArtStore = (() => {
     const rest = boxes.slice(n).map(b => { const o = document.createElement("canvas"); o.width = b.w; o.height = b.h; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h); return o; });
     return aligned.concat(rest);
   }
+  // Stores a ready-made image file as is. Call refresh() once after a batch.
+  async function putBlob(key, blob) {
+    const im = await toImage(blob); if (!im) return false;
+    await idb("readwrite", st => st.put(blob, key));
+    mem.set(key, im); return true;
+  }
+  function refresh() { changed(); }
   async function remove(key) { mem.delete(key); await idb("readwrite", st => st.delete(key)); changed(); }
   async function clear(prefix) {
     const ks = [...mem.keys()].filter(k => !prefix || k.startsWith(prefix));
@@ -225,5 +232,5 @@ const ArtStore = (() => {
   }
   const count = prefix => [...mem.keys()].filter(k => k.startsWith(prefix)).length;
 
-  return { loadAll, importFile, storeCanvas, cutSheet, remove, clear, get, hasChar, charImage, background, count, onChange: f => listeners.add(f), get version() { return version; } };
+  return { loadAll, importFile, putBlob, refresh, storeCanvas, cutSheet, remove, clear, get, hasChar, charImage, background, count, onChange: f => listeners.add(f), get version() { return version; } };
 })();

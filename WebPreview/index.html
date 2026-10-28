@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Coffee &amp; Secrets</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1611,6 +1612,13 @@ const ArtStore = (() => {
     const rest = boxes.slice(n).map(b => { const o = document.createElement("canvas"); o.width = b.w; o.height = b.h; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h); return o; });
     return aligned.concat(rest);
   }
+  // Stores a ready-made image file as is. Call refresh() once after a batch.
+  async function putBlob(key, blob) {
+    const im = await toImage(blob); if (!im) return false;
+    await idb("readwrite", st => st.put(blob, key));
+    mem.set(key, im); return true;
+  }
+  function refresh() { changed(); }
   async function remove(key) { mem.delete(key); await idb("readwrite", st => st.delete(key)); changed(); }
   async function clear(prefix) {
     const ks = [...mem.keys()].filter(k => !prefix || k.startsWith(prefix));
@@ -1647,7 +1655,97 @@ const ArtStore = (() => {
   }
   const count = prefix => [...mem.keys()].filter(k => k.startsWith(prefix)).length;
 
-  return { loadAll, importFile, storeCanvas, cutSheet, remove, clear, get, hasChar, charImage, background, count, onChange: f => listeners.add(f), get version() { return version; } };
+  return { loadAll, importFile, putBlob, refresh, storeCanvas, cutSheet, remove, clear, get, hasChar, charImage, background, count, onChange: f => listeners.add(f), get version() { return version; } };
+})();
+
+// ===== Puppet characters built from your own separate parts (head, torso, arms, legs) =====
+// Parts are stored as char/<ID>/rig/<name>. The same arm angles, head tilt, walk phase and hair sway
+// that drive the built-in doll drive these parts, so every gesture in the stories works.
+const Rig = (() => {
+  const RAD = Math.PI / 180;
+  const part = (id, n) => ArtStore.get(`char/${id}/rig/${n}`);
+  const has = id => !!(part(id, "head") && part(id, "torso"));
+  // The piece for the left (-1) or right (+1) of the screen, mirroring the other side when only one was made.
+  function side(id, base, s) {
+    const own = part(id, base + (s < 0 ? "_l" : "_r"));
+    if (own) return { im: own, flip: false };
+    const other = part(id, base + (s < 0 ? "_r" : "_l"));
+    return other ? { im: other, flip: true } : null;
+  }
+  // Draws a piece hanging from its top-centre pivot at the origin.
+  function hang(g, p, mul) {
+    const im = p.im, w = im.naturalWidth, h = im.naturalHeight;
+    g.save(); if (p.flip) g.scale(-1, 1);
+    g.drawImage(im, -w / 2, 0, w, h); g.restore();
+  }
+  // Heads come from a separate drawing area on the sheet, so their size is matched to the torso (a head is about
+  // 0.72 of the torso's height), then nudged by the Head size slider.
+  const headMul = id => { try { return +localStorage.getItem("vn_headk_" + id) || 1; } catch (e) { return 1; } };
+  const setHeadMul = (id, v) => { try { localStorage.setItem("vn_headk_" + id, v); } catch (e) {} };
+  function headScale(id, head, torso) { return Math.max(0.3, Math.min(3, 0.72 * torso.naturalHeight / head.naturalHeight)) * headMul(id); }
+  function pickHead(id, ch, blink) {
+    const names = [ch.rawEmotion && (EMO_NORMAL[ch.rawEmotion] || ch.rawEmotion) === ch.emotion ? ch.rawEmotion : null, ch.emotion, "neutral"];
+    const em = names.find(n => n && (n === "neutral" ? part(id, "head") : part(id, "head_" + n))) || "neutral";
+    const key = em === "neutral" ? "head" : "head_" + em;
+    if (ch.mouthOpen) {
+      const t = part(id, key + "_talk") || (em === "neutral" ? part(id, "head_talk") : null);
+      if (t) return t;
+    }
+    if (blink) {
+      const b = part(id, key + "_blink") || (em === "neutral" ? part(id, "head_blink") : null);
+      if (b) return b;
+    }
+    return part(id, key);
+  }
+  function draw(g, ch, t) {
+    const id = ch.id, torso = part(id, "torso"), head0 = part(id, "head");
+    if (!torso || !head0) return false;
+    const head = pickHead(id, ch, t < ch.blinkUntil) || head0;
+    const legL = side(id, "leg", -1), legR = side(id, "leg", 1);
+    const th = torso.naturalHeight, tw = torso.naturalWidth;
+    // the sheet pieces are drawn at whatever size filled their cell, so bring arms and legs to normal proportions
+    const legH = Math.max(legL ? legL.im.naturalHeight : 0, legR ? legR.im.naturalHeight : 0);
+    const ls = legH ? Math.max(0.7, Math.min(1.7, 1.3 * th / legH)) : 1;
+    const uaL = side(id, "upper_arm", -1), foL = side(id, "forearm", -1);
+    const armLen = (uaL ? uaL.im.naturalHeight : 0) + (foL ? foL.im.naturalHeight : 0);
+    const as = armLen ? Math.max(0.6, Math.min(1.7, 1.42 * th / armLen)) : 1;
+    const hk = headScale(id, head0, torso), hH = head.naturalHeight * hk, hW = head.naturalWidth * hk;
+    const total = 0.92 * hH + th + 0.88 * legH * ls, k = 1000 / total;
+    g.save();
+    g.scale(k, k);
+    g.translate(0, -(th + 0.88 * legH * ls)); // origin: centre of the top of the torso
+    // legs swing while walking
+    const swing = ch.walk ? (ch.walk > 1 ? 30 : 20) : 0;
+    [[legL, -1], [legR, 1]].forEach(([l, s]) => {
+      if (!l) return;
+      g.save(); g.translate(s * tw * 0.2, th - l.im.naturalHeight * ls * 0.12);
+      g.rotate(swing * Math.sin(ch.walkPhase + (s < 0 ? 0 : Math.PI)) * RAD);
+      g.scale(ls, ls); hang(g, l); g.restore();
+    });
+    g.drawImage(torso, -tw / 2, 0, tw, th);
+    // head, with hair that trails behind it
+    g.save();
+    g.translate(0, 0.08 * hH + Math.sin(t * 2.2 + ch.order + 1) * hH * 0.004);
+    g.rotate((ch.headTilt || 0) * RAD);
+    const hair = part(id, "hair_back");
+    if (hair) { g.save(); g.translate(0, -hH * 0.92); g.rotate(-(ch.sway || 0) * 0.35 * RAD); g.scale(hk, hk); hang(g, { im: hair }); g.restore(); }
+    g.drawImage(head, -hW / 2, -hH, hW, hH);
+    g.restore();
+    // arms: upper arm from the shoulder, forearm from the elbow
+    for (const s of [-1, 1]) {
+      const up = side(id, "upper_arm", s); if (!up) continue;
+      const fore = side(id, "forearm", s), a = ch.arms[s < 0 ? 0 : 1];
+      const uw = up.im.naturalWidth * as, uh = up.im.naturalHeight;
+      g.save(); g.translate(s * (tw / 2 - uw * 0.55), uw * 0.35);
+      g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
+      g.scale(as, as); hang(g, up);
+      if (fore) { g.translate(0, uh * 0.94); g.rotate(-s * a[1] * RAD); hang(g, fore); }
+      g.restore();
+    }
+    g.restore();
+    return true;
+  }
+  return { has, draw, headMul, setHeadMul };
 })();
 
 // ===== Clock, tweens, stage (backgrounds, characters, camera, weather) =====
@@ -3512,9 +3610,20 @@ const Player = (() => {
     const total = ["char/", "bg/", "img/", "cover/", "mg/"].reduce((s, p) => s + ArtStore.count(p), 0);
     sc.innerHTML = `<div class="lib-head"><h1>My art</h1><span>${total} image${total === 1 ? "" : "s"}</span></div>
       <p class="note">Tap a box to pick a picture from your phone. It replaces the built-in art right away in the episodes. Pictures stay on this device only. The art prompts doc lists what to make for each box.</p>
+      <div class="art-row" id="art-demo"></div>
       <div class="seg" id="art-tabs"><button data-v="chars">Characters</button><button data-v="bgs">Backgrounds</button><button data-v="extra">Props & games</button></div>
       <div id="art-body" style="display:flex;flex-direction:column;gap:.7em"></div>`;
     sc.querySelectorAll("#art-tabs button").forEach(b => { b.classList.toggle("on", b.dataset.v === artState.tab); b.onclick = () => { artState.tab = b.dataset.v; Audio2.sfx("click"); renderArt(sc); }; });
+    const demo = sc.querySelector("#art-demo");
+    const demoBtn = UI.el("button", "btn", total ? "Reload the test art" : "Load the test art");
+    demoBtn.onclick = async () => {
+      demoBtn.disabled = true; demoBtn.textContent = "Loading…";
+      try { await loadTestArt(n => { demoBtn.textContent = `Loading ${n}…`; }); Audio2.sfx("pop"); }
+      catch (e) { UI.toast(e.message || "Could not load the test art"); }
+      renderArt(sc);
+    };
+    demo.appendChild(demoBtn);
+    if (total) { const clr = UI.el("button", "btn alt", "Remove all my art"); clr.onclick = async () => { await ArtStore.clear(""); renderArt(sc); }; demo.appendChild(clr); }
     const body = sc.querySelector("#art-body");
     const slotGrid = (title, list, keyFor, opts) => {
       const wrap = UI.el("div", "", `<div class="sub">${UI.esc(title)}</div>`);
@@ -3642,6 +3751,24 @@ const Player = (() => {
       }
     };
     cut();
+  }
+  // The pictures you sent, already cut into pieces and published beside this page.
+  async function loadTestArt(progress) {
+    let man;
+    try { const r = await fetch("demo_art/manifest.json", { cache: "no-cache" }); if (!r.ok) throw 0; man = await r.json(); }
+    catch (e) { throw new Error("The test art is not available in this copy of the preview."); }
+    const keys = Object.keys(man); let done = 0;
+    const queue = keys.slice();
+    const worker = async () => {
+      while (queue.length) {
+        const k = queue.shift();
+        const r = await fetch("demo_art/" + man[k]); if (!r.ok) continue;
+        await ArtStore.putBlob(k, await r.blob());
+        progress(++done + "/" + keys.length);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    ArtStore.refresh();
   }
   function animationTest(id) {
     const cast = storyCast(), d = cast[id];
