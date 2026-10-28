@@ -209,7 +209,7 @@ const Player = (() => {
         if (c.onStage && d) await Clock.wait(Math.min(d, a.duration || 1.0));
         return;
       }
-      case "look": { const s = splitAnim(a.value); if (s.emotion) c.emotion = s.emotion; else c.emotion = a.value.toLowerCase(); return; }
+      case "look": { const s = splitAnim(a.value); c.emotion = s.emotion || a.value.toLowerCase(); c.rawEmotion = s.raw; return; }
       case "face": {
         const v = a.value.toLowerCase();
         if (v === "left") c.facing = -1; else if (v === "right") c.facing = 1; else if (v === "front" || v === "center" || v === "forward" || v === "camera") c.facing = 0;
@@ -348,6 +348,7 @@ const Player = (() => {
     libEl.innerHTML = `<div class="lib-scroll"></div><nav class="tabs">
       <button class="tab" data-t="stories">${ICON.book}Stories</button>
       <button class="tab" data-t="games">${ICON.pad}Mini games</button>
+      <button class="tab" data-t="art">${ICON.spark}My art</button>
       <button class="tab" data-t="lab">${ICON.code}Script lab</button></nav>`;
     libEl.querySelectorAll(".tab").forEach(b => b.onclick = () => { Audio2.sfx("click"); libTab = b.dataset.t; renderTab(); });
     UI.screens.appendChild(libEl);
@@ -360,6 +361,7 @@ const Player = (() => {
     if (libTab === "stories") renderStories(sc);
     if (libTab === "games") renderGames(sc);
     if (libTab === "lab") renderLab(sc);
+    if (libTab === "art") renderArt(sc);
   }
   function renderStories(sc) {
     const eps = EPISODES();
@@ -394,6 +396,8 @@ const Player = (() => {
     const p1 = Core.parse(STORIES[eps[0].key], "c");
     coverStage.defs = p1.chars;
     coverStage.bgName = "INT. COFFEE SHOP - DAY"; coverStage.bg = Art.background(coverStage.bgName, cv.width, cv.height);
+    const userCover = ArtStore.get("cover/" + Core.slug(meta.cover || "cover"));
+    if (userCover) { const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height; const g = c.getContext("2d"); const k = Math.max(c.width / userCover.naturalWidth, c.height / userCover.naturalHeight); g.drawImage(userCover, (c.width - userCover.naturalWidth * k) / 2, (c.height - userCover.naturalHeight * k) / 2, userCover.naturalWidth * k, userCover.naturalHeight * k); coverStage.bg = c; coverStage.setWeather("none"); coverStage.active = true; coverStage.loopGesture = null; return; }
     const m = coverStage.character("MAYA"), l = coverStage.character("LEO");
     Object.assign(m, { x: 105, y: 40, scale: 1.05, onStage: true, alpha: 1, facing: 1, emotion: "happy" });
     Object.assign(l, { x: 225, y: 40, scale: 1.1, onStage: true, alpha: 1, facing: -1, emotion: "smug" });
@@ -449,6 +453,213 @@ const Player = (() => {
     sc.querySelector("#lab-check").onclick = () => { Audio2.sfx("click"); check(); };
     sc.querySelector("#lab-play").onclick = () => { Audio2.init(); const p = check(); if (p.errors.some(e => !e.warn)) { Audio2.sfx("wrong"); return; } Audio2.sfx("pop"); play("__lab", { source: ta.value, fresh: true }); };
     check();
+  }
+
+
+  // ---------- my art ----------
+  const EXPR = ["neutral", "happy", "sad", "angry", "surprised", "worried", "embarrassed", "scared", "think", "laugh", "cry", "smug", "love"];
+  const FRAMES = ["neutral_talk", "neutral_blink", "happy_talk", "happy_blink", "sad_talk", "sad_blink", "surprised_talk", "surprised_blink"];
+  const POSES = ["wave", "cheer", "point", "shrug", "dance"];
+  const OUTFIT_FOLDERS = ["base", "dress", "suit", "sweater"];
+  // Sheet layouts, matching the sprite sheet prompts in the art doc (reading order: rows top to bottom, left to right).
+  const SHEETS = [
+    { id: "cast", name: "Cast lineup (3)", rows: 1, cols: 3, cast: true },
+    { id: "test", name: "Test sheet (9)", rows: 3, cols: 3, names: ["neutral", "neutral_talk", "neutral_blink", "happy", "happy_talk", "sad", "angry", "surprised", "wave"] },
+    { id: "full1", name: "Full sheet 1 (16)", rows: 4, cols: 4, names: ["neutral", "neutral_talk", "neutral_blink", "happy", "happy_talk", "happy_blink", "sad", "sad_talk", "sad_blink", "surprised", "surprised_talk", "surprised_blink", "angry", "worried", "embarrassed", "scared"] },
+    { id: "full2", name: "Full sheet 2 (10)", rows: 2, cols: 5, names: ["think", "laugh", "cry", "smug", "love", "wave", "cheer", "point", "shrug", "dance"] },
+    { id: "props", name: "Props (3)", rows: 1, cols: 3, props: true, keys: ["img/old_key", "mg/timing/icon", "mg/memory/card_back"] },
+  ];
+  const EXTRA_KEYS = [["img/old_key", "old key"], ["mg/timing/icon", "timing icon"], ["mg/memory/card_back", "memory card back"], ["cover/coffee_cover", "cover"]];
+  const artState = { tab: "chars", who: null, outfit: "base", removeBg: true };
+  let picker = null;
+  function pickFile(multiple) {
+    return new Promise(res => {
+      if (picker) picker.remove();
+      picker = document.createElement("input"); picker.type = "file"; picker.accept = "image/*"; picker.multiple = !!multiple; picker.hidden = true;
+      picker.onchange = () => res([...picker.files]);
+      document.body.appendChild(picker); picker.click();
+    });
+  }
+  function storyScenes() {
+    const set = new Map();
+    for (const k of Object.keys(STORIES)) for (const i of Core.parse(STORIES[k], k).ins) if (i.type === "background") { const s = Core.slug(i.name).replace(/^(int|ext|i_e|int_ext|ext_int)_/, ""); set.set(s, i.name); }
+    return [...set.keys()];
+  }
+  function storyCast() {
+    const cast = {};
+    for (const k of Object.keys(STORIES)) Object.assign(cast, Core.parse(STORIES[k], k).chars);
+    return cast;
+  }
+  function renderArt(sc) {
+    const cast = storyCast(), ids = Object.keys(cast);
+    if (!artState.who) artState.who = ids[0];
+    const total = ["char/", "bg/", "img/", "cover/", "mg/"].reduce((s, p) => s + ArtStore.count(p), 0);
+    sc.innerHTML = `<div class="lib-head"><h1>My art</h1><span>${total} image${total === 1 ? "" : "s"}</span></div>
+      <p class="note">Tap a box to pick a picture from your phone. It replaces the built-in art right away in the episodes. Pictures stay on this device only. The art prompts doc lists what to make for each box.</p>
+      <div class="seg" id="art-tabs"><button data-v="chars">Characters</button><button data-v="bgs">Backgrounds</button><button data-v="extra">Props & games</button></div>
+      <div id="art-body" style="display:flex;flex-direction:column;gap:.7em"></div>`;
+    sc.querySelectorAll("#art-tabs button").forEach(b => { b.classList.toggle("on", b.dataset.v === artState.tab); b.onclick = () => { artState.tab = b.dataset.v; Audio2.sfx("click"); renderArt(sc); }; });
+    const body = sc.querySelector("#art-body");
+    const slotGrid = (title, list, keyFor, opts) => {
+      const wrap = UI.el("div", "", `<div class="sub">${UI.esc(title)}</div>`);
+      const grid = UI.el("div", "slots" + (opts && opts.wide ? " wide" : ""));
+      list.forEach(name => {
+        const key = keyFor(name), im = ArtStore.get(key);
+        const b = UI.el("button", "slot" + (im ? " filled" : ""), `${im ? `<img src="${im.src}" alt="">` : '<span class="plus">+</span>'}<span class="l">${UI.esc(name.replace(/_/g, " "))}</span>${im ? `<span class="x" role="button" aria-label="Remove">${ICON.close}</span>` : ""}`);
+        b.onclick = async e => {
+          if (e.target.closest(".x")) { await ArtStore.remove(key); renderArt(sc); return; }
+          const files = await pickFile(false); if (!files.length) return;
+          b.classList.add("busy");
+          try { await ArtStore.importFile(key, files[0], opts && opts.import); Audio2.sfx("pop"); }
+          catch (err) { UI.toast(err.message); }
+          renderArt(sc);
+        };
+        grid.appendChild(b);
+      });
+      wrap.appendChild(grid); body.appendChild(wrap);
+    };
+    if (artState.tab === "chars") {
+      const who = artState.who, folder = artState.outfit;
+      const row = UI.el("div", "art-row", `<div class="seg">${ids.map(id => `<button data-id="${id}" class="${id === who ? "on" : ""}">${UI.esc(cast[id].name && !cast[id].name.includes("{") ? cast[id].name : id.charAt(0) + id.slice(1).toLowerCase())}</button>`).join("")}</div>`);
+      row.querySelectorAll("button").forEach(b => b.onclick = () => { artState.who = b.dataset.id; renderArt(sc); });
+      body.appendChild(row);
+      const row2 = UI.el("div", "art-row", `<label for="art-outfit">Outfit</label><select id="art-outfit">${OUTFIT_FOLDERS.map(o => `<option value="${o}" ${o === folder ? "selected" : ""}>${o === "base" ? "Main look" : o}</option>`).join("")}</select>
+        <label class="check"><input type="checkbox" id="art-rmbg" ${artState.removeBg ? "checked" : ""}>Remove plain background</label>`);
+      row2.querySelector("select").onchange = e => { artState.outfit = e.target.value; renderArt(sc); };
+      row2.querySelector("#art-rmbg").onchange = e => { artState.removeBg = e.target.checked; };
+      body.appendChild(row2);
+      const tools = UI.el("div", "row", "");
+      tools.style.cssText = "justify-content:flex-start;margin:0";
+      const test = UI.el("button", "btn", "Watch animation test"); test.onclick = () => { Audio2.init(); Audio2.sfx("pop"); animationTest(who); };
+      const many = UI.el("button", "btn alt", "Add many by file name");
+      many.onclick = async () => {
+        const files = await pickFile(true); let n = 0, skipped = [];
+        for (const f of files) {
+          const name = f.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[\s-]+/g, "_");
+          if (![...EXPR, ...FRAMES, ...POSES].includes(name) && !/^[a-z]+(_[a-z]+)*$/.test(name)) { skipped.push(f.name); continue; }
+          try { await ArtStore.importFile(`char/${who}/${folder}/${name}`, f, { removeBg: artState.removeBg, alpha: true }); n++; } catch (e) { skipped.push(f.name); }
+        }
+        UI.toast(`Added ${n} image${n === 1 ? "" : "s"}${skipped.length ? `, skipped ${skipped.length}` : ""}`);
+        renderArt(sc);
+      };
+      const sheetBtn = UI.el("button", "btn alt", "Add a sheet");
+      sheetBtn.onclick = () => sheetCutter(sc, artState.sheet || "test");
+      tools.append(test, sheetBtn, many); body.appendChild(tools);
+      const key = n => `char/${who}/${folder}/${n}`;
+      const imp = { import: { removeBg: artState.removeBg, alpha: true } };
+      Object.defineProperty(imp.import, "removeBg", { get: () => artState.removeBg });
+      slotGrid("Expressions", EXPR, key, imp);
+      slotGrid("Talking and blinking", FRAMES, key, imp);
+      slotGrid("Gestures", POSES, key, imp);
+      const clr = UI.el("button", "btn alt", `Clear ${UI.esc(who)}'s art`); clr.style.alignSelf = "flex-start";
+      clr.onclick = async () => { await ArtStore.clear(`char/${who}/`); renderArt(sc); };
+      body.appendChild(clr);
+    }
+    if (artState.tab === "bgs") {
+      slotGrid("Scenes in the episodes", storyScenes(), n => "bg/" + n, { wide: true, import: { maxW: 1600, maxH: 2200 } });
+    }
+    if (artState.tab === "extra") {
+      const sb = UI.el("button", "btn alt", "Add a props sheet"); sb.style.alignSelf = "flex-start";
+      sb.onclick = () => sheetCutter(sc, "props");
+      body.appendChild(sb);
+      slotGrid("Close-ups and cover", ["old_key", "coffee_cover"], n => n === "coffee_cover" ? "cover/coffee_cover" : "img/" + n, { wide: true, import: { alpha: true } });
+      slotGrid("Mini games", ["timing_icon", "memory_card_back"], n => n === "timing_icon" ? "mg/timing/icon" : "mg/memory/card_back", { wide: true, import: { alpha: true } });
+    }
+  }
+  // Cuts a sheet into separate pictures, shows them with where each will go, and saves them on confirm.
+  async function sheetCutter(sc, layoutId) {
+    const files = await pickFile(false); if (!files.length) return;
+    const file = files[0], cast = storyCast(), ids = Object.keys(cast);
+    const nameOf = id => cast[id].name && !cast[id].name.includes("{") ? cast[id].name : id.charAt(0) + id.slice(1).toLowerCase();
+    const st = { layout: layoutId, who: artState.who, grid: false, pieces: [], targets: [] };
+    const s = UI.el("div", "sheet cutter");
+    UI.frame.appendChild(s);
+    const options = () => {
+      const L = SHEETS.find(x => x.id === st.layout), short = !L.cast && !L.props;
+      let o = `<option value="">Skip</option>`;
+      for (const id of ids) o += `<optgroup label="${UI.esc(nameOf(id))}">${[...EXPR, ...FRAMES, ...POSES].map(n => `<option value="char/${id}/${artState.outfit}/${n}">${short && id === st.who ? "" : UI.esc(nameOf(id)) + ": "}${n.replace(/_/g, " ")}</option>`).join("")}</optgroup>`;
+      o += `<optgroup label="Props and games">${EXTRA_KEYS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</optgroup>`;
+      return o;
+    };
+    const defaults = L => st.pieces.map((_, i) => L.cast ? (ids[i] ? `char/${ids[i]}/${artState.outfit}/neutral` : "") : L.props ? (L.keys[i] || "") : (L.names[i] ? `char/${st.who}/${artState.outfit}/${L.names[i]}` : ""));
+    const cut = async () => {
+      const L = SHEETS.find(x => x.id === st.layout);
+      s.innerHTML = `<h2>Cutting the sheet…</h2>`;
+      try { st.pieces = await ArtStore.cutSheet(file, { removeBg: artState.removeBg, figures: !L.props, rows: st.grid ? L.rows : 0, cols: st.grid ? L.cols : 0 }); }
+      catch (e) { UI.toast(e.message); s.remove(); return; }
+      st.targets = defaults(L);
+      render();
+    };
+    const render = () => {
+      const L = SHEETS.find(x => x.id === st.layout), got = st.pieces.length;
+      const expect = L.cast ? ids.length : L.props ? L.keys.length : L.names.length;
+      s.innerHTML = `<button class="close" aria-label="Close">${ICON.close}</button><h2>Cut a sheet</h2>
+        <div class="art-row"><label for="cut-layout">Layout</label><select id="cut-layout">${SHEETS.map(x => `<option value="${x.id}" ${x.id === st.layout ? "selected" : ""}>${x.name}</option>`).join("")}</select>
+        ${L.cast || L.props ? "" : `<label for="cut-who">For</label><select id="cut-who">${ids.map(id => `<option value="${id}" ${id === st.who ? "selected" : ""}>${UI.esc(nameOf(id))}</option>`).join("")}</select>`}</div>
+        <div class="art-row"><span class="seg"><button data-g="0" class="${st.grid ? "" : "on"}">Find figures</button><button data-g="1" class="${st.grid ? "on" : ""}">Cut as ${L.rows}×${L.cols} grid</button></span></div>
+        <p class="note ${got === expect ? "" : "warn"}">Found ${got} picture${got === 1 ? "" : "s"}${got === expect ? "." : `, but this layout has ${expect}. ${st.grid ? "Check the boxes below, or try Find figures." : "Try Cut as grid, or check the boxes below."}`} Change any box to put a picture somewhere else${artState.outfit !== "base" ? ` (outfit: ${UI.esc(artState.outfit)})` : ""}.</p>
+        <div class="slots cut-grid">${st.pieces.map((c, i) => `<div class="slot filled"><img src="${c.toDataURL()}" alt=""><select data-i="${i}" aria-label="Where picture ${i + 1} goes">${options()}</select></div>`).join("")}</div>
+        <div class="row" style="justify-content:flex-start;margin:0"><button class="btn" data-a="save">Save ${st.targets.filter(Boolean).length} picture${st.targets.filter(Boolean).length === 1 ? "" : "s"}</button><button class="btn alt" data-a="cancel">Cancel</button></div>`;
+      s.querySelectorAll(".cut-grid select").forEach(sel => { sel.value = st.targets[+sel.dataset.i]; sel.onchange = () => { st.targets[+sel.dataset.i] = sel.value; render(); }; });
+      s.querySelector("#cut-layout").onchange = e => { st.layout = e.target.value; artState.sheet = st.layout; const N = SHEETS.find(x => x.id === st.layout); if (st.grid) cut(); else { st.targets = defaults(N); render(); } };
+      const w = s.querySelector("#cut-who"); if (w) w.onchange = e => { st.who = e.target.value; st.targets = defaults(SHEETS.find(x => x.id === st.layout)); render(); };
+      s.querySelectorAll(".seg button").forEach(b => b.onclick = () => { const g = b.dataset.g === "1"; if (g !== st.grid) { st.grid = g; cut(); } });
+    };
+    s.onclick = async e => {
+      const b = e.target.closest("button"); if (!b || b.closest(".seg")) return;
+      if (b.classList.contains("close") || b.dataset.a === "cancel") { s.remove(); return; }
+      if (b.dataset.a === "save") {
+        b.disabled = true; b.textContent = "Saving…";
+        const used = new Set();
+        for (let i = 0; i < st.pieces.length; i++) { const k = st.targets[i]; if (!k || used.has(k)) continue; used.add(k); await ArtStore.storeCanvas(k, st.pieces[i], true); }
+        Audio2.sfx("pop"); UI.toast(`Saved ${used.size} picture${used.size === 1 ? "" : "s"}`);
+        const L = SHEETS.find(x => x.id === st.layout);
+        if (!L.cast && !L.props) artState.who = st.who;
+        s.remove(); renderArt(sc);
+      }
+    };
+    cut();
+  }
+  function animationTest(id) {
+    const cast = storyCast(), d = cast[id];
+    const defLine = `character ${id} ${Object.entries(d.opts).filter(([k]) => k !== "name").map(([k, v]) => `${k}=${v}`).join(" ")} name="${d.name && !d.name.includes("{") ? d.name : id.charAt(0) + id.slice(1).toLowerCase()}"`;
+    const line = (anim, text) => `${id} (${anim})\n${text}\n`;
+    const src = `${defLine}
+
+INT. COFFEE SHOP - DAY
+@music cafe
+@${id} enters from left to center
+
+${line("talk_happy", "Hi! I just walked in. Watch my mouth move while I talk, and keep an eye out for blinks.")}
+${line("neutral", "This is my neutral face.")}
+${line("sad", "This is sad...")}
+${line("angry", "This is angry!")}
+${line("surprised", "Surprised!")}
+${line("worried", "Worried...")}
+${line("embarrassed", "Embarrassed.")}
+${line("scared", "Scared!")}
+${line("think", "Hmm, thinking.")}
+${line("laugh", "Ha ha ha!")}
+${line("cry", "Crying...")}
+${line("smug", "Feeling smug.")}
+${line("love", "In love.")}
+@${id} is wave
+@${id} jumps
+@${id} nods
+@${id} laughs
+@${id} is cheer
+@${id} shrugs
+@${id} spins
+@${id} walks to left
+@${id} runs to right
+@${id} walks to center and faces front
+@zoom on ${id} 1.6 in 0.6
+${line("happy", "And a close-up. That's everything!")}
+@zoom reset
+@${id} is dance
+@${id} exits right
+`;
+    play("__lab", { source: src, fresh: true });
   }
 
   function init(st, cs) {

@@ -97,7 +97,8 @@ class StageChar {
   get color() { return this.look.color; }
   play(anim) {
     const a = splitAnim(anim);
-    if (a.emotion) this.emotion = a.emotion;
+    if (a.emotion) { this.emotion = a.emotion; this.rawEmotion = a.raw; }
+    this.animName = anim.toLowerCase().replace(/_loop$/, "");
     let g = a.gesture;
     if (g === "idle") { this.gesture = null; this.hold = null; return 0; }
     if (!g) return 0;
@@ -163,11 +164,29 @@ class StageChar {
     g.rotate(P.rot * (this.facing || 1) * Math.PI / 180);
     g.scale(P.sx, P.sy);
     g.scale(f.h / 1000, f.h / 1000);
+    if (ArtStore.hasChar(this.id) && this.drawImage(g, t)) { g.restore(); return; }
     Art.drawCharacter(g, this.look, {
       emotion: this.emotion, time: t, blink: t < this.blinkUntil, mouthOpen: this.mouthOpen,
       look: this.facing, arms: this.arms, headTilt: this.headTilt, sway: this.sway, blush: this.blush,
     });
     g.restore();
+  }
+  drawImage(g, t) {
+    const active = this.gesture && (this.gk < 1 || this.hold);
+    const names = active ? [this.animName, this.gesture] : [];
+    names.push(this.rawEmotion && (EMO_NORMAL[this.rawEmotion] || this.rawEmotion) === this.emotion ? this.rawEmotion : null, this.emotion, "neutral", "idle");
+    const pick = ArtStore.charImage(this.id, this.look.slots.outfit, names, this.mouthOpen, t < this.blinkUntil);
+    if (!pick) return false;
+    if (pick.key !== this.imgKey) { this.prevImg = this.curImg; this.curImg = pick.img; this.imgKey = pick.key; this.fadeT = t; }
+    else this.curImg = pick.img;
+    const opts = (this.def && this.def.opts) || {};
+    const artFaces = (opts.faces || "").toLowerCase();
+    if ((artFaces === "right" && this.facing < 0) || (artFaces === "left" && this.facing > 0)) g.scale(-1, 1);
+    const draw = (im, a) => { if (!im || a <= 0) return; const w = 1000 * im.naturalWidth / im.naturalHeight; const ga = g.globalAlpha; g.globalAlpha = ga * a; g.drawImage(im, -w / 2, -1000, w, 1000); g.globalAlpha = ga; };
+    const k = Math.min(1, (t - (this.fadeT || 0)) / 0.16);
+    if (k < 1 && this.prevImg) draw(this.prevImg, 1);
+    draw(this.curImg, k < 1 && this.prevImg ? k : 1);
+    return true;
   }
   headPx() { const f = this.feetPx(); return { x: f.x, y: f.y - f.h * 0.975, h: f.h }; }
 }

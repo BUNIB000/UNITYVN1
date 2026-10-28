@@ -130,7 +130,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .ep .t b { display: block; font-family: var(--font-title); font-weight: 400; font-size: 1.02em; }
 .ep .t small { color: #c9b6d3; font-size: .78em; }
 .ep .play { font-family: var(--font-title); font-size: .85em; background: #fff; color: var(--ink); padding: .4em .9em; border-radius: 999px; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: #140b1a; padding: .45em .5em calc(.45em + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(255,255,255,.07); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: #140b1a; padding: .45em .5em calc(.45em + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(255,255,255,.07); }
 .tab { display: flex; flex-direction: column; align-items: center; gap: .2em; font-size: .72em; padding: .35em; color: #a996b4; border-radius: .8em; }
 .tab svg { width: 1.7em; height: 1.7em; }
 .tab.on { color: #fff; background: rgba(255,92,138,.18); }
@@ -207,6 +207,35 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes starpop { from { transform: scale(0) rotate(-40deg); } to { transform: none; } }
 @keyframes fbup { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 -1.6em; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; transition: none !important; } }
+/* ---------- my art ---------- */
+.seg { display: flex; gap: .4em; flex-wrap: wrap; }
+.seg button { padding: .45em .9em; border-radius: 999px; background: rgba(255,255,255,.1); font-family: var(--font-title); font-size: .9em; }
+.seg button.on { background: var(--accent); }
+.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5em; }
+.slots.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.slot { position: relative; aspect-ratio: 1 / 2; max-width: 100%; border-radius: .7em; background: rgba(255,255,255,.06); border: 1.5px dashed rgba(255,255,255,.22); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden; padding: 0; }
+.slots.wide .slot { aspect-ratio: 9 / 16; }
+.slot.filled { border-style: solid; border-color: rgba(255,255,255,.35); background: repeating-conic-gradient(#3a2a44 0 25%, #2c2034 0 50%) 0 0 / 14px 14px; }
+.slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.slots.wide .slot img { object-fit: cover; }
+.slot .plus { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 1.6em; color: rgba(255,255,255,.4); }
+.slot span.l { position: relative; width: 100%; font-size: .66em; padding: .3em .2em; background: rgba(14,8,20,.75); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot .x { position: absolute; top: .25em; right: .25em; width: 1.6em; height: 1.6em; border-radius: 50%; background: rgba(14,8,20,.8); display: grid; place-items: center; font-size: .8em; }
+.slot .x svg { width: 1em; height: 1em; }
+.slot.busy::after { content: ""; position: absolute; inset: 0; background: rgba(14,8,20,.6); }
+.art-row { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; }
+.art-row select, .art-row label { font-size: .85em; }
+.art-row select { font: inherit; background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: .7em; padding: .45em .7em; }
+.check { display: inline-flex; gap: .4em; align-items: center; }
+.check input { width: 1.1em; height: 1.1em; accent-color: var(--accent); }
+.sub { font-family: var(--font-title); font-size: .95em; margin-top: .3em; }
+
+.cutter .art-row label { color: #c9b6d3; }
+.cutter .note.warn { color: #ffd27a; }
+.cut-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cut-grid .slot { justify-content: flex-end; }
+.cut-grid .slot img { bottom: 2.2em; height: calc(100% - 2.2em); }
+.cut-grid select { position: relative; width: 100%; font: inherit; font-size: .7em; background: rgba(14,8,20,.9); color: #fff; border: 0; padding: .55em .3em; }
 
 </style>
 <div id="app">
@@ -1047,8 +1076,10 @@ const Art = (() => {
     if (bgCache.has(key)) return bgCache.get(key);
     const c = document.createElement("canvas"); c.width = w; c.height = h;
     const g = c.getContext("2d");
+    const user = typeof ArtStore !== "undefined" && ArtStore.background(name);
     const p = pickPainter(name);
-    if (p) painters[p](g, w, h, timeOf(name)); else paintPlaceholder(g, w, h, name.replace(/^(INT|EXT)\.?\s*/i, "").replace(/\s*-\s*.*$/, ""));
+    if (user) { const k = Math.max(w / user.naturalWidth, h / user.naturalHeight), iw = user.naturalWidth * k, ih = user.naturalHeight * k; g.drawImage(user, (w - iw) / 2, (h - ih) / 2, iw, ih); }
+    else if (p) painters[p](g, w, h, timeOf(name)); else paintPlaceholder(g, w, h, name.replace(/^(INT|EXT)\.?\s*/i, "").replace(/\s*-\s*.*$/, ""));
     bgCache.set(key, c);
     return c;
   }
@@ -1358,6 +1389,8 @@ const Art = (() => {
   function item(name, size) {
     const c = document.createElement("canvas"); c.width = c.height = size;
     const g = c.getContext("2d"); const n = name.toLowerCase(), s = size;
+    const user = typeof ArtStore !== "undefined" && ArtStore.get("img/" + Core.slug(name));
+    if (user) { const k = Math.min(s / user.naturalWidth, s / user.naturalHeight); g.drawImage(user, (s - user.naturalWidth * k) / 2, (s - user.naturalHeight * k) / 2, user.naturalWidth * k, user.naturalHeight * k); return c; }
     g.translate(s / 2, s / 2);
     if (/key/.test(n)) {
       g.rotate(-0.6);
@@ -1385,6 +1418,231 @@ const Art = (() => {
   }
 
   return { background, clearCache, drawCharacter, makeLook, FACES, gesturePose, emotionPose, REST, item, hex, shade, alpha, hash, rr, OUTFITS };
+})();
+
+// ===== Your own art: images imported on this device (IndexedDB), used in place of the built-in art =====
+// Keys: char/<ID>/<outfit|base>/<name>, bg/<name>, img/<name>, cover/<name>, mg/<game>/<name>
+const ArtStore = (() => {
+  const mem = new Map();
+  let db = null, version = 0;
+  const listeners = new Set();
+  const changed = () => { version++; Art.clearCache(); listeners.forEach(f => f()); };
+
+  function open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open("vn_art", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("a");
+        r.onsuccess = () => { db = r.result; res(); };
+        r.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  }
+  function toImage(blob) {
+    return new Promise(res => {
+      const url = URL.createObjectURL(blob), im = new Image();
+      im.onload = () => res(im); im.onerror = () => res(null); im.src = url;
+    });
+  }
+  async function loadAll() {
+    await open(); if (!db) return;
+    const entries = await new Promise(res => {
+      try {
+        const out = [], tx = db.transaction("a"), st = tx.objectStore("a"), cur = st.openCursor();
+        cur.onsuccess = () => { const c = cur.result; if (c) { out.push([c.key, c.value]); c.continue(); } else res(out); };
+        cur.onerror = () => res(out);
+      } catch (e) { res([]); }
+    });
+    for (const [k, blob] of entries) { const im = await toImage(blob); if (im) mem.set(k, im); }
+    if (entries.length) changed();
+  }
+  function idb(mode, fn) { return new Promise(res => { if (!db) return res(); try { const tx = db.transaction("a", mode); fn(tx.objectStore("a")); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
+
+  // Clears a plain background (white or any flat colour) by flood-filling from the edges.
+  function removeBackground(g, w, h) {
+    const d = g.getImageData(0, 0, w, h), p = d.data;
+    const at = (x, y) => (y * w + x) * 4;
+    const corners = [at(1, 1), at(w - 2, 1), at(1, h - 2), at(w - 2, h - 2)];
+    if (corners.some(i => p[i + 3] < 200)) return; // already transparent
+    const bg = [0, 1, 2].map(c => corners.reduce((s, i) => s + p[i + c], 0) / 4);
+    const dist = i => Math.max(Math.abs(p[i] - bg[0]), Math.abs(p[i + 1] - bg[1]), Math.abs(p[i + 2] - bg[2]));
+    const HARD = 34, SOFT = 64;
+    const seen = new Uint8Array(w * h), q = new Int32Array(w * h);
+    let qh = 0, qt = 0;
+    const push = n => { if (!seen[n]) { seen[n] = 1; q[qt++] = n; } };
+    for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+    for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+    while (qh < qt) {
+      const n = q[qh++], i = n * 4, dd = dist(i);
+      if (dd > SOFT) continue;
+      if (dd > HARD) { p[i + 3] = Math.round(255 * (dd - HARD) / (SOFT - HARD)); continue; }
+      p[i + 3] = 0;
+      const x = n % w;
+      if (x > 0) push(n - 1); if (x < w - 1) push(n + 1);
+      if (n >= w) push(n - w); if (n < w * (h - 1)) push(n + w);
+    }
+    g.putImageData(d, 0, 0);
+  }
+
+  async function importFile(key, file, opts) {
+    opts = opts || {};
+    const src = await toImage(file);
+    if (!src) throw new Error("That file isn't an image this browser can open.");
+    const maxH = opts.maxH || 1600, maxW = opts.maxW || 1600;
+    const k = Math.min(1, maxH / src.naturalHeight, maxW / src.naturalWidth);
+    const w = Math.round(src.naturalWidth * k), h = Math.round(src.naturalHeight * k);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d", { willReadFrequently: !!opts.removeBg });
+    g.drawImage(src, 0, 0, w, h);
+    URL.revokeObjectURL(src.src);
+    if (opts.removeBg) removeBackground(g, w, h);
+    await storeCanvas(key, c, opts.removeBg || opts.alpha);
+  }
+  async function storeCanvas(key, c, png) {
+    const blob = await new Promise(res => c.toBlob(res, png ? "image/png" : "image/jpeg", 0.9));
+    await idb("readwrite", st => st.put(blob, key));
+    mem.set(key, await toImage(blob));
+    changed();
+  }
+
+  // ----- Sheets: one picture holding several poses, cut into separate images -----
+  const SOLID = 40;
+  // Finds each figure on a cleared sheet: connected shapes on a coarse grid, small bits merged into nearby figures.
+  function findFigures(p, w, h) {
+    const s = Math.max(1, Math.ceil(Math.max(w, h) / 420)), gw = Math.ceil(w / s), gh = Math.ceil(h / s);
+    const raw = new Uint8Array(gw * gh);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (p[(y * w + x) * 4 + 3] > SOLID) raw[((y / s) | 0) * gw + ((x / s) | 0)] = 1;
+    const m = new Uint8Array(gw * gh); // grown by one cell so hair strands and fingers stay attached
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (raw[y * gw + x])
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < gw && Y < gh) m[Y * gw + X] = 1; }
+    const lab = new Int32Array(gw * gh), q = new Int32Array(gw * gh), boxes = [];
+    for (let i = 0; i < m.length; i++) {
+      if (!m[i] || lab[i]) continue;
+      const b = { x0: 1e9, y0: 1e9, x1: -1, y1: -1, n: 0 };
+      let qh = 0, qt = 0; q[qt++] = i; lab[i] = boxes.length + 1;
+      while (qh < qt) {
+        const n = q[qh++], x = n % gw, y = (n / gw) | 0;
+        b.x0 = Math.min(b.x0, x); b.y0 = Math.min(b.y0, y); b.x1 = Math.max(b.x1, x); b.y1 = Math.max(b.y1, y); b.n++;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= gw || Y >= gh) continue;
+          const k = Y * gw + X; if (m[k] && !lab[k]) { lab[k] = boxes.length + 1; q[qt++] = k; }
+        }
+      }
+      boxes.push(b);
+    }
+    if (!boxes.length) return [];
+    const area = b => (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1);
+    const big = Math.max(...boxes.map(area));
+    let main = boxes.filter(b => area(b) >= big * 0.08);
+    const small = boxes.filter(b => area(b) < big * 0.08);
+    for (const b of small) { // a tear or sweat drop next to a figure joins it
+      const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+      const t = main.find(o => { const mx = (o.x1 - o.x0) * 0.15, my = (o.y1 - o.y0) * 0.1; return cx >= o.x0 - mx && cx <= o.x1 + mx && cy >= o.y0 - my && cy <= o.y1 + my; });
+      if (t) { t.x0 = Math.min(t.x0, b.x0); t.y0 = Math.min(t.y0, b.y0); t.x1 = Math.max(t.x1, b.x1); t.y1 = Math.max(t.y1, b.y1); }
+    }
+    for (let again = true; again;) { // overlapping boxes are one figure
+      again = false;
+      for (let i = 0; i < main.length && !again; i++) for (let j = i + 1; j < main.length && !again; j++) {
+        const a = main[i], b = main[j];
+        if (a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1) {
+          a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0); a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1);
+          main.splice(j, 1); again = true;
+        }
+      }
+    }
+    const out = main.map(b => ({ x: b.x0 * s, y: b.y0 * s, w: Math.min(w, (b.x1 + 1) * s) - b.x0 * s, h: Math.min(h, (b.y1 + 1) * s) - b.y0 * s }));
+    // reading order: rows top to bottom, then left to right
+    out.sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
+    const medH = out.map(b => b.h).sort((a, b) => a - b)[out.length >> 1], rows = [];
+    for (const b of out) { const r = rows[rows.length - 1]; if (r && (b.y + b.h / 2) - r.cy < medH * 0.5) r.items.push(b); else rows.push({ cy: b.y + b.h / 2, items: [b] }); }
+    return rows.flatMap(r => r.items.sort((a, b) => a.x - b.x));
+  }
+  // Tightens a box to the solid pixels inside it.
+  function tighten(p, w, b) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) if (p[(y * w + x) * 4 + 3] > SOLID) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  // Horizontal middle of the legs and feet, so a raised arm doesn't shift the body sideways.
+  function footCenter(p, w, b) {
+    let sum = 0, n = 0;
+    for (let y = Math.round(b.y + b.h * 0.75); y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) if (p[(y * w + x) * 4 + 3] > SOLID) { sum += x; n++; }
+    return n ? sum / n : b.x + b.w / 2;
+  }
+  // Returns the cut pictures as canvases. figures: true puts every figure on the same canvas size,
+  // feet on the bottom edge and centred on the legs, so swapping between them doesn't jump.
+  async function cutSheet(file, opts) {
+    opts = opts || {};
+    const src = await toImage(file);
+    if (!src) throw new Error("That file isn't an image this browser can open.");
+    const k = Math.min(1, 3400 / Math.max(src.naturalWidth, src.naturalHeight));
+    const w = Math.round(src.naturalWidth * k), h = Math.round(src.naturalHeight * k);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(src, 0, 0, w, h);
+    URL.revokeObjectURL(src.src);
+    let boxes = [];
+    if (opts.rows && opts.cols) {
+      const cw = w / opts.cols, ch = h / opts.rows;
+      for (let r = 0; r < opts.rows; r++) for (let q = 0; q < opts.cols; q++) {
+        const x = Math.round(q * cw), y = Math.round(r * ch), bw = Math.round((q + 1) * cw) - x, bh = Math.round((r + 1) * ch) - y;
+        if (opts.removeBg) { const cell = g.getImageData(x, y, bw, bh); const t = document.createElement("canvas"); t.width = bw; t.height = bh; const tg = t.getContext("2d", { willReadFrequently: true }); tg.putImageData(cell, 0, 0); removeBackground(tg, bw, bh); g.putImageData(tg.getImageData(0, 0, bw, bh), x, y); }
+        boxes.push({ x, y, w: bw, h: bh });
+      }
+    } else if (opts.removeBg) removeBackground(g, w, h);
+    const p = g.getImageData(0, 0, w, h).data;
+    if (!(opts.rows && opts.cols)) boxes = findFigures(p, w, h);
+    boxes = boxes.map(b => tighten(p, w, b)).filter(Boolean);
+    if (!opts.figures) {
+      return boxes.map(b => { const pad = Math.round(Math.max(b.w, b.h) * 0.04), o = document.createElement("canvas"); o.width = b.w + pad * 2; o.height = b.h + pad * 2; o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, pad, pad, b.w, b.h); return o; });
+    }
+    const centers = boxes.map(b => footCenter(p, w, b));
+    const half = Math.max(1, ...boxes.map((b, i) => Math.max(centers[i] - b.x, b.x + b.w - centers[i])));
+    const tall = Math.max(1, ...boxes.map(b => b.h));
+    const top = Math.round(tall * 0.05), ow = Math.ceil(half * 2 + tall * 0.04), oh = tall + top;
+    return boxes.map((b, i) => {
+      const o = document.createElement("canvas"); o.width = ow; o.height = oh;
+      o.getContext("2d").drawImage(c, b.x, b.y, b.w, b.h, Math.round(ow / 2 - (centers[i] - b.x)), oh - b.h, b.w, b.h);
+      return o;
+    });
+  }
+  async function remove(key) { mem.delete(key); await idb("readwrite", st => st.delete(key)); changed(); }
+  async function clear(prefix) {
+    const ks = [...mem.keys()].filter(k => !prefix || k.startsWith(prefix));
+    ks.forEach(k => mem.delete(k));
+    await idb("readwrite", st => ks.forEach(k => st.delete(k)));
+    changed();
+  }
+
+  const get = key => mem.get(key) || null;
+  const hasChar = id => { for (const k of mem.keys()) if (k.startsWith("char/" + id + "/")) return true; return false; };
+
+  // Picks the picture for a character the same way the Unity engine does for one-image-per-pose art.
+  function charImage(id, outfit, names, talk, blink) {
+    const folders = outfit && outfit !== "casual" && outfit !== "base" ? [outfit, "base"] : ["base"];
+    for (const f of folders) {
+      for (const n of names) {
+        if (!n) continue;
+        const base = `char/${id}/${f}/${n}`;
+        if (!mem.has(base)) continue;
+        if (talk && mem.has(base + "_talk")) return { img: mem.get(base + "_talk"), key: base };
+        if (blink && mem.has(base + "_blink")) return { img: mem.get(base + "_blink"), key: base };
+        return { img: mem.get(base), key: base };
+      }
+    }
+    return null;
+  }
+  function background(name) {
+    const full = Core.slug(name), noPrefix = full.replace(/^(int|ext|i_e|int_ext|ext_int)_/, "");
+    const noTime = noPrefix.replace(/_(day|night|morning|evening|afternoon|dawn|dusk|sunset|midnight)$/, "");
+    for (const n of [full, noPrefix, noTime]) if (mem.has("bg/" + n)) return mem.get("bg/" + n);
+    // Same place at another time of day (one coffee shop picture covers day and night).
+    for (const k of mem.keys()) if (k.startsWith("bg/" + noTime + "_")) return mem.get(k);
+    return null;
+  }
+  const count = prefix => [...mem.keys()].filter(k => k.startsWith(prefix)).length;
+
+  return { loadAll, importFile, storeCanvas, cutSheet, remove, clear, get, hasChar, charImage, background, count, onChange: f => listeners.add(f), get version() { return version; } };
 })();
 
 // ===== Clock, tweens, stage (backgrounds, characters, camera, weather) =====
@@ -1486,7 +1744,8 @@ class StageChar {
   get color() { return this.look.color; }
   play(anim) {
     const a = splitAnim(anim);
-    if (a.emotion) this.emotion = a.emotion;
+    if (a.emotion) { this.emotion = a.emotion; this.rawEmotion = a.raw; }
+    this.animName = anim.toLowerCase().replace(/_loop$/, "");
     let g = a.gesture;
     if (g === "idle") { this.gesture = null; this.hold = null; return 0; }
     if (!g) return 0;
@@ -1552,11 +1811,29 @@ class StageChar {
     g.rotate(P.rot * (this.facing || 1) * Math.PI / 180);
     g.scale(P.sx, P.sy);
     g.scale(f.h / 1000, f.h / 1000);
+    if (ArtStore.hasChar(this.id) && this.drawImage(g, t)) { g.restore(); return; }
     Art.drawCharacter(g, this.look, {
       emotion: this.emotion, time: t, blink: t < this.blinkUntil, mouthOpen: this.mouthOpen,
       look: this.facing, arms: this.arms, headTilt: this.headTilt, sway: this.sway, blush: this.blush,
     });
     g.restore();
+  }
+  drawImage(g, t) {
+    const active = this.gesture && (this.gk < 1 || this.hold);
+    const names = active ? [this.animName, this.gesture] : [];
+    names.push(this.rawEmotion && (EMO_NORMAL[this.rawEmotion] || this.rawEmotion) === this.emotion ? this.rawEmotion : null, this.emotion, "neutral", "idle");
+    const pick = ArtStore.charImage(this.id, this.look.slots.outfit, names, this.mouthOpen, t < this.blinkUntil);
+    if (!pick) return false;
+    if (pick.key !== this.imgKey) { this.prevImg = this.curImg; this.curImg = pick.img; this.imgKey = pick.key; this.fadeT = t; }
+    else this.curImg = pick.img;
+    const opts = (this.def && this.def.opts) || {};
+    const artFaces = (opts.faces || "").toLowerCase();
+    if ((artFaces === "right" && this.facing < 0) || (artFaces === "left" && this.facing > 0)) g.scale(-1, 1);
+    const draw = (im, a) => { if (!im || a <= 0) return; const w = 1000 * im.naturalWidth / im.naturalHeight; const ga = g.globalAlpha; g.globalAlpha = ga * a; g.drawImage(im, -w / 2, -1000, w, 1000); g.globalAlpha = ga; };
+    const k = Math.min(1, (t - (this.fadeT || 0)) / 0.16);
+    if (k < 1 && this.prevImg) draw(this.prevImg, 1);
+    draw(this.curImg, k < 1 && this.prevImg ? k : 1);
+    return true;
   }
   headPx() { const f = this.feetPx(); return { x: f.x, y: f.y - f.h * 0.975, h: f.h }; }
 }
@@ -2295,7 +2572,7 @@ const Minigames = (() => {
   reg("timing", { name: "Timing bar", icon: "target", color: "#ff5c8a", blurb: "Stop the marker in the zone. Pouring, lockpicking, archery.", how: "Tap when the marker is inside the green zone!" }, async ctx => {
     const rounds = ctx.num("rounds", 3), need = ctx.num("need", Math.ceil(rounds * 0.67)), zone = ctx.num("zone", 0.18) / ctx.diff, speed = ctx.num("speed", 1) * ctx.diff;
     const c = center(ctx, `<div style="font-family:var(--font-title);font-size:1.1em" class="rnd"></div>
-      <div style="width:6em;height:6em;color:#fff">${ICON.coffee}</div>
+      <div style="width:6em;height:6em;color:#fff">${ArtStore.get("mg/timing/icon") ? `<img src="${ArtStore.get("mg/timing/icon").src}" alt="" style="width:100%;height:100%;object-fit:contain">` : ICON.coffee}</div>
       <div class="bar" style="position:relative;width:88%;height:3em;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 .3em #f0e4f3,0 .3em 0 rgba(0,0,0,.25);overflow:hidden">
         <div class="z" style="position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#7de3b4,#3cc88f)"></div>
         <div class="p" style="position:absolute;top:0;bottom:0;width:.8%;background:#fff;opacity:.9"></div>
@@ -2349,7 +2626,8 @@ const Minigames = (() => {
     const T = ctx.timer(time);
     const res = await new Promise(resolve => {
       deck.forEach(d => {
-        const m = el("button", "mcard", `<div class="in"><div class="b"></div><div class="f" style="color:${d.f[1]}">${ICON[d.f[0]]}</div></div>`);
+        const back = ArtStore.get("mg/memory/card_back");
+        const m = el("button", "mcard", `<div class="in"><div class="b"${back ? ` style="background:url(${back.src}) center/cover"` : ""}></div><div class="f" style="color:${d.f[1]}">${ICON[d.f[0]]}</div></div>`);
         m.onclick = async () => {
           if (busy || m.classList.contains("up") || m.classList.contains("got")) return;
           m.classList.add("up"); ctx.sfx("flip"); open.push([m, d]);
@@ -2936,7 +3214,7 @@ const Player = (() => {
         if (c.onStage && d) await Clock.wait(Math.min(d, a.duration || 1.0));
         return;
       }
-      case "look": { const s = splitAnim(a.value); if (s.emotion) c.emotion = s.emotion; else c.emotion = a.value.toLowerCase(); return; }
+      case "look": { const s = splitAnim(a.value); c.emotion = s.emotion || a.value.toLowerCase(); c.rawEmotion = s.raw; return; }
       case "face": {
         const v = a.value.toLowerCase();
         if (v === "left") c.facing = -1; else if (v === "right") c.facing = 1; else if (v === "front" || v === "center" || v === "forward" || v === "camera") c.facing = 0;
@@ -3075,6 +3353,7 @@ const Player = (() => {
     libEl.innerHTML = `<div class="lib-scroll"></div><nav class="tabs">
       <button class="tab" data-t="stories">${ICON.book}Stories</button>
       <button class="tab" data-t="games">${ICON.pad}Mini games</button>
+      <button class="tab" data-t="art">${ICON.spark}My art</button>
       <button class="tab" data-t="lab">${ICON.code}Script lab</button></nav>`;
     libEl.querySelectorAll(".tab").forEach(b => b.onclick = () => { Audio2.sfx("click"); libTab = b.dataset.t; renderTab(); });
     UI.screens.appendChild(libEl);
@@ -3087,6 +3366,7 @@ const Player = (() => {
     if (libTab === "stories") renderStories(sc);
     if (libTab === "games") renderGames(sc);
     if (libTab === "lab") renderLab(sc);
+    if (libTab === "art") renderArt(sc);
   }
   function renderStories(sc) {
     const eps = EPISODES();
@@ -3121,6 +3401,8 @@ const Player = (() => {
     const p1 = Core.parse(STORIES[eps[0].key], "c");
     coverStage.defs = p1.chars;
     coverStage.bgName = "INT. COFFEE SHOP - DAY"; coverStage.bg = Art.background(coverStage.bgName, cv.width, cv.height);
+    const userCover = ArtStore.get("cover/" + Core.slug(meta.cover || "cover"));
+    if (userCover) { const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height; const g = c.getContext("2d"); const k = Math.max(c.width / userCover.naturalWidth, c.height / userCover.naturalHeight); g.drawImage(userCover, (c.width - userCover.naturalWidth * k) / 2, (c.height - userCover.naturalHeight * k) / 2, userCover.naturalWidth * k, userCover.naturalHeight * k); coverStage.bg = c; coverStage.setWeather("none"); coverStage.active = true; coverStage.loopGesture = null; return; }
     const m = coverStage.character("MAYA"), l = coverStage.character("LEO");
     Object.assign(m, { x: 105, y: 40, scale: 1.05, onStage: true, alpha: 1, facing: 1, emotion: "happy" });
     Object.assign(l, { x: 225, y: 40, scale: 1.1, onStage: true, alpha: 1, facing: -1, emotion: "smug" });
@@ -3178,6 +3460,213 @@ const Player = (() => {
     check();
   }
 
+
+  // ---------- my art ----------
+  const EXPR = ["neutral", "happy", "sad", "angry", "surprised", "worried", "embarrassed", "scared", "think", "laugh", "cry", "smug", "love"];
+  const FRAMES = ["neutral_talk", "neutral_blink", "happy_talk", "happy_blink", "sad_talk", "sad_blink", "surprised_talk", "surprised_blink"];
+  const POSES = ["wave", "cheer", "point", "shrug", "dance"];
+  const OUTFIT_FOLDERS = ["base", "dress", "suit", "sweater"];
+  // Sheet layouts, matching the sprite sheet prompts in the art doc (reading order: rows top to bottom, left to right).
+  const SHEETS = [
+    { id: "cast", name: "Cast lineup (3)", rows: 1, cols: 3, cast: true },
+    { id: "test", name: "Test sheet (9)", rows: 3, cols: 3, names: ["neutral", "neutral_talk", "neutral_blink", "happy", "happy_talk", "sad", "angry", "surprised", "wave"] },
+    { id: "full1", name: "Full sheet 1 (16)", rows: 4, cols: 4, names: ["neutral", "neutral_talk", "neutral_blink", "happy", "happy_talk", "happy_blink", "sad", "sad_talk", "sad_blink", "surprised", "surprised_talk", "surprised_blink", "angry", "worried", "embarrassed", "scared"] },
+    { id: "full2", name: "Full sheet 2 (10)", rows: 2, cols: 5, names: ["think", "laugh", "cry", "smug", "love", "wave", "cheer", "point", "shrug", "dance"] },
+    { id: "props", name: "Props (3)", rows: 1, cols: 3, props: true, keys: ["img/old_key", "mg/timing/icon", "mg/memory/card_back"] },
+  ];
+  const EXTRA_KEYS = [["img/old_key", "old key"], ["mg/timing/icon", "timing icon"], ["mg/memory/card_back", "memory card back"], ["cover/coffee_cover", "cover"]];
+  const artState = { tab: "chars", who: null, outfit: "base", removeBg: true };
+  let picker = null;
+  function pickFile(multiple) {
+    return new Promise(res => {
+      if (picker) picker.remove();
+      picker = document.createElement("input"); picker.type = "file"; picker.accept = "image/*"; picker.multiple = !!multiple; picker.hidden = true;
+      picker.onchange = () => res([...picker.files]);
+      document.body.appendChild(picker); picker.click();
+    });
+  }
+  function storyScenes() {
+    const set = new Map();
+    for (const k of Object.keys(STORIES)) for (const i of Core.parse(STORIES[k], k).ins) if (i.type === "background") { const s = Core.slug(i.name).replace(/^(int|ext|i_e|int_ext|ext_int)_/, ""); set.set(s, i.name); }
+    return [...set.keys()];
+  }
+  function storyCast() {
+    const cast = {};
+    for (const k of Object.keys(STORIES)) Object.assign(cast, Core.parse(STORIES[k], k).chars);
+    return cast;
+  }
+  function renderArt(sc) {
+    const cast = storyCast(), ids = Object.keys(cast);
+    if (!artState.who) artState.who = ids[0];
+    const total = ["char/", "bg/", "img/", "cover/", "mg/"].reduce((s, p) => s + ArtStore.count(p), 0);
+    sc.innerHTML = `<div class="lib-head"><h1>My art</h1><span>${total} image${total === 1 ? "" : "s"}</span></div>
+      <p class="note">Tap a box to pick a picture from your phone. It replaces the built-in art right away in the episodes. Pictures stay on this device only. The art prompts doc lists what to make for each box.</p>
+      <div class="seg" id="art-tabs"><button data-v="chars">Characters</button><button data-v="bgs">Backgrounds</button><button data-v="extra">Props & games</button></div>
+      <div id="art-body" style="display:flex;flex-direction:column;gap:.7em"></div>`;
+    sc.querySelectorAll("#art-tabs button").forEach(b => { b.classList.toggle("on", b.dataset.v === artState.tab); b.onclick = () => { artState.tab = b.dataset.v; Audio2.sfx("click"); renderArt(sc); }; });
+    const body = sc.querySelector("#art-body");
+    const slotGrid = (title, list, keyFor, opts) => {
+      const wrap = UI.el("div", "", `<div class="sub">${UI.esc(title)}</div>`);
+      const grid = UI.el("div", "slots" + (opts && opts.wide ? " wide" : ""));
+      list.forEach(name => {
+        const key = keyFor(name), im = ArtStore.get(key);
+        const b = UI.el("button", "slot" + (im ? " filled" : ""), `${im ? `<img src="${im.src}" alt="">` : '<span class="plus">+</span>'}<span class="l">${UI.esc(name.replace(/_/g, " "))}</span>${im ? `<span class="x" role="button" aria-label="Remove">${ICON.close}</span>` : ""}`);
+        b.onclick = async e => {
+          if (e.target.closest(".x")) { await ArtStore.remove(key); renderArt(sc); return; }
+          const files = await pickFile(false); if (!files.length) return;
+          b.classList.add("busy");
+          try { await ArtStore.importFile(key, files[0], opts && opts.import); Audio2.sfx("pop"); }
+          catch (err) { UI.toast(err.message); }
+          renderArt(sc);
+        };
+        grid.appendChild(b);
+      });
+      wrap.appendChild(grid); body.appendChild(wrap);
+    };
+    if (artState.tab === "chars") {
+      const who = artState.who, folder = artState.outfit;
+      const row = UI.el("div", "art-row", `<div class="seg">${ids.map(id => `<button data-id="${id}" class="${id === who ? "on" : ""}">${UI.esc(cast[id].name && !cast[id].name.includes("{") ? cast[id].name : id.charAt(0) + id.slice(1).toLowerCase())}</button>`).join("")}</div>`);
+      row.querySelectorAll("button").forEach(b => b.onclick = () => { artState.who = b.dataset.id; renderArt(sc); });
+      body.appendChild(row);
+      const row2 = UI.el("div", "art-row", `<label for="art-outfit">Outfit</label><select id="art-outfit">${OUTFIT_FOLDERS.map(o => `<option value="${o}" ${o === folder ? "selected" : ""}>${o === "base" ? "Main look" : o}</option>`).join("")}</select>
+        <label class="check"><input type="checkbox" id="art-rmbg" ${artState.removeBg ? "checked" : ""}>Remove plain background</label>`);
+      row2.querySelector("select").onchange = e => { artState.outfit = e.target.value; renderArt(sc); };
+      row2.querySelector("#art-rmbg").onchange = e => { artState.removeBg = e.target.checked; };
+      body.appendChild(row2);
+      const tools = UI.el("div", "row", "");
+      tools.style.cssText = "justify-content:flex-start;margin:0";
+      const test = UI.el("button", "btn", "Watch animation test"); test.onclick = () => { Audio2.init(); Audio2.sfx("pop"); animationTest(who); };
+      const many = UI.el("button", "btn alt", "Add many by file name");
+      many.onclick = async () => {
+        const files = await pickFile(true); let n = 0, skipped = [];
+        for (const f of files) {
+          const name = f.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[\s-]+/g, "_");
+          if (![...EXPR, ...FRAMES, ...POSES].includes(name) && !/^[a-z]+(_[a-z]+)*$/.test(name)) { skipped.push(f.name); continue; }
+          try { await ArtStore.importFile(`char/${who}/${folder}/${name}`, f, { removeBg: artState.removeBg, alpha: true }); n++; } catch (e) { skipped.push(f.name); }
+        }
+        UI.toast(`Added ${n} image${n === 1 ? "" : "s"}${skipped.length ? `, skipped ${skipped.length}` : ""}`);
+        renderArt(sc);
+      };
+      const sheetBtn = UI.el("button", "btn alt", "Add a sheet");
+      sheetBtn.onclick = () => sheetCutter(sc, artState.sheet || "test");
+      tools.append(test, sheetBtn, many); body.appendChild(tools);
+      const key = n => `char/${who}/${folder}/${n}`;
+      const imp = { import: { removeBg: artState.removeBg, alpha: true } };
+      Object.defineProperty(imp.import, "removeBg", { get: () => artState.removeBg });
+      slotGrid("Expressions", EXPR, key, imp);
+      slotGrid("Talking and blinking", FRAMES, key, imp);
+      slotGrid("Gestures", POSES, key, imp);
+      const clr = UI.el("button", "btn alt", `Clear ${UI.esc(who)}'s art`); clr.style.alignSelf = "flex-start";
+      clr.onclick = async () => { await ArtStore.clear(`char/${who}/`); renderArt(sc); };
+      body.appendChild(clr);
+    }
+    if (artState.tab === "bgs") {
+      slotGrid("Scenes in the episodes", storyScenes(), n => "bg/" + n, { wide: true, import: { maxW: 1600, maxH: 2200 } });
+    }
+    if (artState.tab === "extra") {
+      const sb = UI.el("button", "btn alt", "Add a props sheet"); sb.style.alignSelf = "flex-start";
+      sb.onclick = () => sheetCutter(sc, "props");
+      body.appendChild(sb);
+      slotGrid("Close-ups and cover", ["old_key", "coffee_cover"], n => n === "coffee_cover" ? "cover/coffee_cover" : "img/" + n, { wide: true, import: { alpha: true } });
+      slotGrid("Mini games", ["timing_icon", "memory_card_back"], n => n === "timing_icon" ? "mg/timing/icon" : "mg/memory/card_back", { wide: true, import: { alpha: true } });
+    }
+  }
+  // Cuts a sheet into separate pictures, shows them with where each will go, and saves them on confirm.
+  async function sheetCutter(sc, layoutId) {
+    const files = await pickFile(false); if (!files.length) return;
+    const file = files[0], cast = storyCast(), ids = Object.keys(cast);
+    const nameOf = id => cast[id].name && !cast[id].name.includes("{") ? cast[id].name : id.charAt(0) + id.slice(1).toLowerCase();
+    const st = { layout: layoutId, who: artState.who, grid: false, pieces: [], targets: [] };
+    const s = UI.el("div", "sheet cutter");
+    UI.frame.appendChild(s);
+    const options = () => {
+      const L = SHEETS.find(x => x.id === st.layout), short = !L.cast && !L.props;
+      let o = `<option value="">Skip</option>`;
+      for (const id of ids) o += `<optgroup label="${UI.esc(nameOf(id))}">${[...EXPR, ...FRAMES, ...POSES].map(n => `<option value="char/${id}/${artState.outfit}/${n}">${short && id === st.who ? "" : UI.esc(nameOf(id)) + ": "}${n.replace(/_/g, " ")}</option>`).join("")}</optgroup>`;
+      o += `<optgroup label="Props and games">${EXTRA_KEYS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</optgroup>`;
+      return o;
+    };
+    const defaults = L => st.pieces.map((_, i) => L.cast ? (ids[i] ? `char/${ids[i]}/${artState.outfit}/neutral` : "") : L.props ? (L.keys[i] || "") : (L.names[i] ? `char/${st.who}/${artState.outfit}/${L.names[i]}` : ""));
+    const cut = async () => {
+      const L = SHEETS.find(x => x.id === st.layout);
+      s.innerHTML = `<h2>Cutting the sheet…</h2>`;
+      try { st.pieces = await ArtStore.cutSheet(file, { removeBg: artState.removeBg, figures: !L.props, rows: st.grid ? L.rows : 0, cols: st.grid ? L.cols : 0 }); }
+      catch (e) { UI.toast(e.message); s.remove(); return; }
+      st.targets = defaults(L);
+      render();
+    };
+    const render = () => {
+      const L = SHEETS.find(x => x.id === st.layout), got = st.pieces.length;
+      const expect = L.cast ? ids.length : L.props ? L.keys.length : L.names.length;
+      s.innerHTML = `<button class="close" aria-label="Close">${ICON.close}</button><h2>Cut a sheet</h2>
+        <div class="art-row"><label for="cut-layout">Layout</label><select id="cut-layout">${SHEETS.map(x => `<option value="${x.id}" ${x.id === st.layout ? "selected" : ""}>${x.name}</option>`).join("")}</select>
+        ${L.cast || L.props ? "" : `<label for="cut-who">For</label><select id="cut-who">${ids.map(id => `<option value="${id}" ${id === st.who ? "selected" : ""}>${UI.esc(nameOf(id))}</option>`).join("")}</select>`}</div>
+        <div class="art-row"><span class="seg"><button data-g="0" class="${st.grid ? "" : "on"}">Find figures</button><button data-g="1" class="${st.grid ? "on" : ""}">Cut as ${L.rows}×${L.cols} grid</button></span></div>
+        <p class="note ${got === expect ? "" : "warn"}">Found ${got} picture${got === 1 ? "" : "s"}${got === expect ? "." : `, but this layout has ${expect}. ${st.grid ? "Check the boxes below, or try Find figures." : "Try Cut as grid, or check the boxes below."}`} Change any box to put a picture somewhere else${artState.outfit !== "base" ? ` (outfit: ${UI.esc(artState.outfit)})` : ""}.</p>
+        <div class="slots cut-grid">${st.pieces.map((c, i) => `<div class="slot filled"><img src="${c.toDataURL()}" alt=""><select data-i="${i}" aria-label="Where picture ${i + 1} goes">${options()}</select></div>`).join("")}</div>
+        <div class="row" style="justify-content:flex-start;margin:0"><button class="btn" data-a="save">Save ${st.targets.filter(Boolean).length} picture${st.targets.filter(Boolean).length === 1 ? "" : "s"}</button><button class="btn alt" data-a="cancel">Cancel</button></div>`;
+      s.querySelectorAll(".cut-grid select").forEach(sel => { sel.value = st.targets[+sel.dataset.i]; sel.onchange = () => { st.targets[+sel.dataset.i] = sel.value; render(); }; });
+      s.querySelector("#cut-layout").onchange = e => { st.layout = e.target.value; artState.sheet = st.layout; const N = SHEETS.find(x => x.id === st.layout); if (st.grid) cut(); else { st.targets = defaults(N); render(); } };
+      const w = s.querySelector("#cut-who"); if (w) w.onchange = e => { st.who = e.target.value; st.targets = defaults(SHEETS.find(x => x.id === st.layout)); render(); };
+      s.querySelectorAll(".seg button").forEach(b => b.onclick = () => { const g = b.dataset.g === "1"; if (g !== st.grid) { st.grid = g; cut(); } });
+    };
+    s.onclick = async e => {
+      const b = e.target.closest("button"); if (!b || b.closest(".seg")) return;
+      if (b.classList.contains("close") || b.dataset.a === "cancel") { s.remove(); return; }
+      if (b.dataset.a === "save") {
+        b.disabled = true; b.textContent = "Saving…";
+        const used = new Set();
+        for (let i = 0; i < st.pieces.length; i++) { const k = st.targets[i]; if (!k || used.has(k)) continue; used.add(k); await ArtStore.storeCanvas(k, st.pieces[i], true); }
+        Audio2.sfx("pop"); UI.toast(`Saved ${used.size} picture${used.size === 1 ? "" : "s"}`);
+        const L = SHEETS.find(x => x.id === st.layout);
+        if (!L.cast && !L.props) artState.who = st.who;
+        s.remove(); renderArt(sc);
+      }
+    };
+    cut();
+  }
+  function animationTest(id) {
+    const cast = storyCast(), d = cast[id];
+    const defLine = `character ${id} ${Object.entries(d.opts).filter(([k]) => k !== "name").map(([k, v]) => `${k}=${v}`).join(" ")} name="${d.name && !d.name.includes("{") ? d.name : id.charAt(0) + id.slice(1).toLowerCase()}"`;
+    const line = (anim, text) => `${id} (${anim})\n${text}\n`;
+    const src = `${defLine}
+
+INT. COFFEE SHOP - DAY
+@music cafe
+@${id} enters from left to center
+
+${line("talk_happy", "Hi! I just walked in. Watch my mouth move while I talk, and keep an eye out for blinks.")}
+${line("neutral", "This is my neutral face.")}
+${line("sad", "This is sad...")}
+${line("angry", "This is angry!")}
+${line("surprised", "Surprised!")}
+${line("worried", "Worried...")}
+${line("embarrassed", "Embarrassed.")}
+${line("scared", "Scared!")}
+${line("think", "Hmm, thinking.")}
+${line("laugh", "Ha ha ha!")}
+${line("cry", "Crying...")}
+${line("smug", "Feeling smug.")}
+${line("love", "In love.")}
+@${id} is wave
+@${id} jumps
+@${id} nods
+@${id} laughs
+@${id} is cheer
+@${id} shrugs
+@${id} spins
+@${id} walks to left
+@${id} runs to right
+@${id} walks to center and faces front
+@zoom on ${id} 1.6 in 0.6
+${line("happy", "And a close-up. That's everything!")}
+@zoom reset
+@${id} is dance
+@${id} exits right
+`;
+    play("__lab", { source: src, fresh: true });
+  }
+
   function init(st, cs) {
     stage = st; coverStage = cs;
     const h = UI.hud;
@@ -3230,6 +3719,7 @@ const Player = (() => {
   // fonts affect painted backgrounds: repaint once they arrive
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { Art.clearCache(); fit(); if (!stage.bgName) Player.openLibrary(); });
   Player.openLibrary();
+  ArtStore.loadAll().then(() => { stage.resize(stage.W, stage.H); if (document.querySelector(".lib")) Player.openLibrary(); });
 })();
 
 

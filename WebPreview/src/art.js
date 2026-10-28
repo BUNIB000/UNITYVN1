@@ -268,8 +268,10 @@ const Art = (() => {
     if (bgCache.has(key)) return bgCache.get(key);
     const c = document.createElement("canvas"); c.width = w; c.height = h;
     const g = c.getContext("2d");
+    const user = typeof ArtStore !== "undefined" && ArtStore.background(name);
     const p = pickPainter(name);
-    if (p) painters[p](g, w, h, timeOf(name)); else paintPlaceholder(g, w, h, name.replace(/^(INT|EXT)\.?\s*/i, "").replace(/\s*-\s*.*$/, ""));
+    if (user) { const k = Math.max(w / user.naturalWidth, h / user.naturalHeight), iw = user.naturalWidth * k, ih = user.naturalHeight * k; g.drawImage(user, (w - iw) / 2, (h - ih) / 2, iw, ih); }
+    else if (p) painters[p](g, w, h, timeOf(name)); else paintPlaceholder(g, w, h, name.replace(/^(INT|EXT)\.?\s*/i, "").replace(/\s*-\s*.*$/, ""));
     bgCache.set(key, c);
     return c;
   }
@@ -579,6 +581,8 @@ const Art = (() => {
   function item(name, size) {
     const c = document.createElement("canvas"); c.width = c.height = size;
     const g = c.getContext("2d"); const n = name.toLowerCase(), s = size;
+    const user = typeof ArtStore !== "undefined" && ArtStore.get("img/" + Core.slug(name));
+    if (user) { const k = Math.min(s / user.naturalWidth, s / user.naturalHeight); g.drawImage(user, (s - user.naturalWidth * k) / 2, (s - user.naturalHeight * k) / 2, user.naturalWidth * k, user.naturalHeight * k); return c; }
     g.translate(s / 2, s / 2);
     if (/key/.test(n)) {
       g.rotate(-0.6);

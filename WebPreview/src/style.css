@@ -124,7 +124,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .ep .t b { display: block; font-family: var(--font-title); font-weight: 400; font-size: 1.02em; }
 .ep .t small { color: #c9b6d3; font-size: .78em; }
 .ep .play { font-family: var(--font-title); font-size: .85em; background: #fff; color: var(--ink); padding: .4em .9em; border-radius: 999px; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: #140b1a; padding: .45em .5em calc(.45em + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(255,255,255,.07); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: #140b1a; padding: .45em .5em calc(.45em + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(255,255,255,.07); }
 .tab { display: flex; flex-direction: column; align-items: center; gap: .2em; font-size: .72em; padding: .35em; color: #a996b4; border-radius: .8em; }
 .tab svg { width: 1.7em; height: 1.7em; }
 .tab.on { color: #fff; background: rgba(255,92,138,.18); }
@@ -201,3 +201,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes starpop { from { transform: scale(0) rotate(-40deg); } to { transform: none; } }
 @keyframes fbup { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 -1.6em; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; transition: none !important; } }
+/* ---------- my art ---------- */
+.seg { display: flex; gap: .4em; flex-wrap: wrap; }
+.seg button { padding: .45em .9em; border-radius: 999px; background: rgba(255,255,255,.1); font-family: var(--font-title); font-size: .9em; }
+.seg button.on { background: var(--accent); }
+.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5em; }
+.slots.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.slot { position: relative; aspect-ratio: 1 / 2; max-width: 100%; border-radius: .7em; background: rgba(255,255,255,.06); border: 1.5px dashed rgba(255,255,255,.22); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden; padding: 0; }
+.slots.wide .slot { aspect-ratio: 9 / 16; }
+.slot.filled { border-style: solid; border-color: rgba(255,255,255,.35); background: repeating-conic-gradient(#3a2a44 0 25%, #2c2034 0 50%) 0 0 / 14px 14px; }
+.slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.slots.wide .slot img { object-fit: cover; }
+.slot .plus { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 1.6em; color: rgba(255,255,255,.4); }
+.slot span.l { position: relative; width: 100%; font-size: .66em; padding: .3em .2em; background: rgba(14,8,20,.75); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot .x { position: absolute; top: .25em; right: .25em; width: 1.6em; height: 1.6em; border-radius: 50%; background: rgba(14,8,20,.8); display: grid; place-items: center; font-size: .8em; }
+.slot .x svg { width: 1em; height: 1em; }
+.slot.busy::after { content: ""; position: absolute; inset: 0; background: rgba(14,8,20,.6); }
+.art-row { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; }
+.art-row select, .art-row label { font-size: .85em; }
+.art-row select { font: inherit; background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: .7em; padding: .45em .7em; }
+.check { display: inline-flex; gap: .4em; align-items: center; }
+.check input { width: 1.1em; height: 1.1em; accent-color: var(--accent); }
+.sub { font-family: var(--font-title); font-size: .95em; margin-top: .3em; }
+
+.cutter .art-row label { color: #c9b6d3; }
+.cutter .note.warn { color: #ffd27a; }
+.cut-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cut-grid .slot { justify-content: flex-end; }
+.cut-grid .slot img { bottom: 2.2em; height: calc(100% - 2.2em); }
+.cut-grid select { position: relative; width: 100%; font: inherit; font-size: .7em; background: rgba(14,8,20,.9); color: #fff; border: 0; padding: .55em .3em; }

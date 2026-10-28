@@ -37,4 +37,5 @@
   // fonts affect painted backgrounds: repaint once they arrive
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { Art.clearCache(); fit(); if (!stage.bgName) Player.openLibrary(); });
   Player.openLibrary();
+  ArtStore.loadAll().then(() => { stage.resize(stage.W, stage.H); if (document.querySelector(".lib")) Player.openLibrary(); });
 })();

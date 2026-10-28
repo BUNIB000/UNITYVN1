@@ -140,7 +140,7 @@ const Minigames = (() => {
   reg("timing", { name: "Timing bar", icon: "target", color: "#ff5c8a", blurb: "Stop the marker in the zone. Pouring, lockpicking, archery.", how: "Tap when the marker is inside the green zone!" }, async ctx => {
     const rounds = ctx.num("rounds", 3), need = ctx.num("need", Math.ceil(rounds * 0.67)), zone = ctx.num("zone", 0.18) / ctx.diff, speed = ctx.num("speed", 1) * ctx.diff;
     const c = center(ctx, `<div style="font-family:var(--font-title);font-size:1.1em" class="rnd"></div>
-      <div style="width:6em;height:6em;color:#fff">${ICON.coffee}</div>
+      <div style="width:6em;height:6em;color:#fff">${ArtStore.get("mg/timing/icon") ? `<img src="${ArtStore.get("mg/timing/icon").src}" alt="" style="width:100%;height:100%;object-fit:contain">` : ICON.coffee}</div>
       <div class="bar" style="position:relative;width:88%;height:3em;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 .3em #f0e4f3,0 .3em 0 rgba(0,0,0,.25);overflow:hidden">
         <div class="z" style="position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#7de3b4,#3cc88f)"></div>
         <div class="p" style="position:absolute;top:0;bottom:0;width:.8%;background:#fff;opacity:.9"></div>
@@ -194,7 +194,8 @@ const Minigames = (() => {
     const T = ctx.timer(time);
     const res = await new Promise(resolve => {
       deck.forEach(d => {
-        const m = el("button", "mcard", `<div class="in"><div class="b"></div><div class="f" style="color:${d.f[1]}">${ICON[d.f[0]]}</div></div>`);
+        const back = ArtStore.get("mg/memory/card_back");
+        const m = el("button", "mcard", `<div class="in"><div class="b"${back ? ` style="background:url(${back.src}) center/cover"` : ""}></div><div class="f" style="color:${d.f[1]}">${ICON[d.f[0]]}</div></div>`);
         m.onclick = async () => {
           if (busy || m.classList.contains("up") || m.classList.contains("got")) return;
           m.classList.add("up"); ctx.sfx("flip"); open.push([m, d]);
