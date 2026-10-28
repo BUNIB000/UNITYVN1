@@ -1708,6 +1708,33 @@ const Rig = (() => {
     x.globalCompositeOperation = "destination-in"; x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
     fadeCache.set(im, c); return c;
   }
+  // A limb that bends smoothly: the lower part of the upper arm and the top of the forearm are cut into thin strips, each
+  // turned a little more than the last, so the elbow curves like skin instead of folding like two cardboard tubes.
+  function strips(g, p, y0, y1, n, step, s) {
+    const im = p.im, w = im.naturalWidth, h = im.naturalHeight, sy = y0 * h, sh = (y1 - y0) * h / n;
+    for (let i = 0; i < n; i++) {
+      g.save(); if (p.flip) g.scale(-1, 1);
+      const ov = Math.min(sh * 4, h - (sy + i * sh)); // draw taller than the strip: the next strip covers the extra, so no gaps open on the outside of the bend
+      g.drawImage(im, 0, sy + i * sh, w, ov, -w / 2, 0, w, ov);
+      g.restore();
+      g.translate(0, sh * 0.97); g.rotate(-s * step * RAD);
+    }
+    return sh * n;
+  }
+  function bentArm(g, up, fore, a1, s) {
+    const uh = up.im.naturalHeight, fh = fore.im.naturalHeight, step = a1 / 8;
+    // upper arm, rigid down to 80%
+    g.save(); if (up.flip) g.scale(-1, 1);
+    g.drawImage(up.im, 0, 0, up.im.naturalWidth, uh * 0.8, -up.im.naturalWidth / 2, 0, up.im.naturalWidth, uh * 0.8);
+    g.restore();
+    g.translate(0, uh * 0.8 * 0.99);
+    strips(g, up, 0.8, 0.94, 4, step, s);
+    strips(g, fore, 0, 0.14, 4, step, s);
+    // the rest of the forearm
+    g.save(); if (fore.flip) g.scale(-1, 1);
+    g.drawImage(fore.im, 0, fh * 0.14, fore.im.naturalWidth, fh * 0.86 + 1, -fore.im.naturalWidth / 2, 0, fore.im.naturalWidth, fh * 0.86 + 1);
+    g.restore();
+  }
   function draw(g, ch, t) {
     const id = ch.id, torso = part(id, "torso"), head0 = part(id, "head");
     if (!torso || !head0) return false;
@@ -1741,8 +1768,9 @@ const Rig = (() => {
       const uw = up.im.naturalWidth * as, uh = up.im.naturalHeight;
       g.save(); g.translate(s * (tw / 2 - uw * 0.6), uw * 0.12);
       g.rotate(-s * (fore ? a[0] : a[0] + a[1] * 0.5) * RAD);
-      g.scale(as, as); hang(g, up);
-      if (fore) { g.translate(0, uh * 0.94); g.rotate(-s * a[1] * RAD); hang(g, fore); }
+      g.scale(as, as);
+      if (fore && Math.abs(a[1]) > 3) bentArm(g, up, fore, a[1], s);
+      else { hang(g, up); if (fore) { g.translate(0, uh * 0.94); hang(g, fore); } }
       g.restore();
     };
     const low = s => { const a = ch.arms[s < 0 ? 0 : 1]; return Math.abs(a[0]) < 40 && Math.abs(a[0] + a[1]) < 70; };
